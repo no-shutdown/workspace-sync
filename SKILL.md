@@ -1,6 +1,6 @@
 ---
 name: workspace-sync
-description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 git 项目状态)。支持 GitLab 或 MinIO 两种存储后端,首次使用会引导配置。无论用户明确输入 /workspace-sync 命令,还是只是提到"换台设备继续工作""下班想回家接着弄""把今天的进展同步到云端""记录一下工作状态以便切换设备",都应进入本 skill。list 不只是查看,列出后立即引导用户选一个 workspace 继续工作,不要等用户手动再打一遍 pull。
+description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 git 项目状态)。支持 Local/GitHub/GitLab/MinIO 四种存储后端,首次使用会引导配置。无论用户明确输入 /workspace-sync 命令,还是只是提到"换台设备继续工作""下班想回家接着弄""把今天的进展同步到云端""记录一下工作状态以便切换设备",都应进入本 skill。list 不只是查看,列出后立即引导用户选一个 workspace 继续工作,不要等用户手动再打一遍 pull。
 ---
 
 # Workspace Sync
@@ -16,14 +16,16 @@ description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 g
 
 ## 存储后端
 
-支持两种,二选一(首次使用时配置):
+支持四种,选一即可(首次使用时配置):
 
 | 后端 | 前置条件 |
 |------|---------|
+| **Local** | 本地目录,配合 Dropbox/OneDrive/iCloud 自动跨设备;零 API 配置 |
+| **GitHub** | 一个已存在的仓库 + 有 repo scope 的 Personal Access Token |
 | **GitLab** | 一个已存在的空仓库 + 有 read/write 权限的 Personal Access Token |
 | **MinIO** | 一个已存在的 bucket + 有读写权限的密钥 + 本机已装 `mc` 客户端 |
 
-skill 不会自动创建仓库或 bucket,目标不存在时直接报错。
+skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
 
 ## 配置文件
 
@@ -31,11 +33,19 @@ skill 不会自动创建仓库或 bucket,目标不存在时直接报错。
 
 ```json
 {
-  "backend": "gitlab",
+  "backend": "local",
+  "local": {
+    "path": "~/Dropbox/claude-workspaces"
+  },
   "gitlab": {
     "host": "your.gitlab.com",
     "token": "glpat-xxx",
     "project_path": "namespace/repo-name",
+    "branch": "main"
+  },
+  "github": {
+    "token": "ghp_xxxxxxxxxxxx",
+    "repo": "your-username/claude-workspaces",
     "branch": "main"
   },
   "minio": {
@@ -238,9 +248,9 @@ Pull 时:读 manifest.skill_states,调用对应 skill 的 import;
 | MinIO bucket 不存在 | 验证失败,提示先创建 bucket |
 | mc 未安装(minio 后端) | 报错,给出三平台安装命令 |
 | detect-projects 返回空 | 按纯讨论模式继续 |
-| push 时项目有未提交改动 | 报错,要求先 commit/push |
-| push 时项目无 upstream | 报错,要求先 `git push -u` |
-| push 时与 upstream 不同步 | 报错,要求先同步代码 |
+| push 时项目有未提交改动 | 告警 + 询问,用户确认后继续,manifest 记录 `code_status=dirty` |
+| push 时项目无 upstream | 报错,要求先 `git push -u`(无法记录远端指针,不可跳过) |
+| push 时与 upstream 不同步 | 告警 + 询问,用户确认后继续,manifest 记录 `code_status=out_of_sync` |
 | push 时远端版本已变化 | 告警并询问是否基于最新版本继续提交 |
 | 项目路径未映射(pull 时) | 交互询问用户,写入 local-paths.json |
 | 记录的 head 不存在 | 跳过该项目并告知用户 |
@@ -254,12 +264,16 @@ Pull 时:读 manifest.skill_states,调用对应 skill 的 import;
 
 # Backend 实现
 
+接口规范见 `references/backend-interface.md`，各后端实现：
+
+- Local:  `references/local.md`
+- GitHub: `references/github.md`
 - GitLab: `references/gitlab.md`
-- MinIO: `references/minio.md`
+- MinIO:  `references/minio.md`
 
 ---
 
 # 暂未实现
 
-- GitHub / S3 后端
+- S3 后端
 - workspace 版本历史浏览与回滚

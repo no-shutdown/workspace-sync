@@ -47,12 +47,39 @@ CACHE_DIR="${CACHE_DIR/#\~/$HOME}"
 
 ### Step 2: 定位当前 session jsonl
 
+主路径（Claude Code 约定的编码规则）：
+
 ```bash
 WIN_PWD=$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")
 ENCODED_CWD=$(echo "$WIN_PWD" | sed 's|[:\\/]|-|g')
 SESSIONS_DIR="$HOME/.claude/projects/$ENCODED_CWD"
 SESSION_JSONL=$(ls -t "$SESSIONS_DIR"/*.jsonl 2>/dev/null | head -1)
-[[ -z "$SESSION_JSONL" ]] && { echo "❌ 未找到当前会话 jsonl"; exit 1; }
+```
+
+若主路径找不到（平台差异/路径编码变体），执行 fallback：
+
+```bash
+if [[ -z "$SESSION_JSONL" ]]; then
+  # 在所有 project 目录中，找最近修改且含有当前 PWD 记录的 jsonl
+  # 策略：先按修改时间倒序扫描所有 jsonl，检查其中是否含 cwd 匹配当前工作目录
+  SESSION_JSONL=$(
+    find "$HOME/.claude/projects" -name "*.jsonl" -newer /dev/null 2>/dev/null \
+    | xargs ls -t 2>/dev/null \
+    | while read -r f; do
+        if grep -qF "\"cwd\":\"$PWD\"" "$f" 2>/dev/null || \
+           grep -qF "\"cwd\":\"$WIN_PWD\"" "$f" 2>/dev/null; then
+          echo "$f"
+          break
+        fi
+      done
+  )
+fi
+
+[[ -z "$SESSION_JSONL" ]] && {
+  echo "❌ 未找到当前会话 jsonl（路径: $SESSIONS_DIR/*.jsonl）"
+  echo "   请确认 Claude Code 会话文件存在，或手动指定路径"
+  exit 1
+}
 ```
 
 ### Step 3: 识别涉及的项目
@@ -103,33 +130,56 @@ CURRENT_REMOTE_CREATED_AT=""
 
 ### Step 7: 校验每个项目状态
 
+对每个检测到的项目，收集 `code_status`（不直接中断，汇总后再决策）：
+
 ```bash
+CODE_WARNINGS=()   # 积累警告信息
+
 for each detected project:
   cd "$PROJECT_PATH"
+  PROJ_CODE_STATUS="clean"
 
-  [[ -z "$(git status --porcelain)" ]] || {
-    echo "❌ 项目 $PROJECT_NAME 存在未提交改动，请先 commit/push 后再执行 workspace-sync push"
-    exit 1
-  }
+  # 未提交/暂存改动
+  if [[ -n "$(git status --porcelain)" ]]; then
+    PROJ_CODE_STATUS="dirty"
+    CODE_WARNINGS+=("⚠  $PROJECT_NAME: 存在未提交改动")
+  fi
 
+  # upstream 检查（致命：无 upstream 无法记录远端指针，直接报错）
   UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
   [[ -n "$UPSTREAM" ]] || {
-    echo "❌ 项目 $PROJECT_NAME 当前分支没有上游分支，请先 push -u"
+    echo "❌ 项目 $PROJECT_NAME 当前分支没有上游分支，请先 git push -u"
     exit 1
   }
 
-  git fetch --prune
-  COUNTS=$(git rev-list --left-right --count HEAD...@{u})
+  # 未推送/落后检查
+  git fetch --prune 2>/dev/null
+  COUNTS=$(git rev-list --left-right --count HEAD...@{u} 2>/dev/null || echo "0 0")
   AHEAD=$(echo "$COUNTS" | awk '{print $1}')
   BEHIND=$(echo "$COUNTS" | awk '{print $2}')
-  [[ "$AHEAD" == "0" && "$BEHIND" == "0" ]] || {
-    echo "❌ 项目 $PROJECT_NAME 与上游不同步(ahead=$AHEAD behind=$BEHIND)"
-    exit 1
-  }
+  if [[ "$AHEAD" != "0" || "$BEHIND" != "0" ]]; then
+    PROJ_CODE_STATUS="out_of_sync"
+    CODE_WARNINGS+=("⚠  $PROJECT_NAME: 与上游不同步 (ahead=$AHEAD behind=$BEHIND)")
+  fi
+
+  PROJECT_CODE_STATUSES["$PROJECT_NAME"]="$PROJ_CODE_STATUS"
 done
 ```
 
-任何一个项目不满足 → 整个 push 终止。
+如果收集到任何警告，展示后询问用户：
+
+```
+以下项目的代码状态不是完全干净:
+  ⚠  shanks-manage: 存在未提交改动
+  ⚠  shanks-web: 与上游不同步 (ahead=2 behind=0)
+
+此次 workspace 将只保存对话上下文，代码侧以当前已推送的 HEAD 为准。
+在另一台设备 pull 后，上述代码改动不会被恢复。
+是否仍然继续推送? [y/N]
+```
+
+用户选 N → 终止，提示先同步代码。
+用户选 Y → 继续，manifest 中每个项目记录 `"code_status": "dirty"` 或 `"code_status": "out_of_sync"`，干净项目记录 `"code_status": "clean"`。
 
 ### Step 8: 生成 summary.md + manifest.json
 
@@ -188,7 +238,8 @@ for each detected project:
   #   "remote": "$(git config --get remote.origin.url)",
   #   "upstream": "$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}')",
   #   "branch": "$(git rev-parse --abbrev-ref HEAD)",
-  #   "head": "$(git rev-parse HEAD)"
+  #   "head": "$(git rev-parse HEAD)",
+  #   "code_status": "${PROJECT_CODE_STATUSES[$PROJECT_NAME]:-clean}"
   # }
 done
 ```
@@ -238,9 +289,16 @@ LATEST_REMOTE_VERSION=<backend-specific read>
 ✓ 工作空间已推送: <name>
   - 后端: <backend>
   - 版本: v<NEXT_VERSION> (previous v<CURRENT_REMOTE_VERSION>)
-  - 涉及项目: N 个
+  - 涉及项目: N 个 (dirty: M 个)
   - skill 状态: <exported/skipped 汇总>
   - 在另一设备用 /workspace-sync pull <name> 恢复
+```
+
+如有 dirty/out_of_sync 项目，在报告末尾补充提示：
+
+```
+⚠  提醒：以下项目有未同步的本地代码，pull 后需手动恢复:
+   - shanks-manage (dirty)
 ```
 
 ## 常见失败原因

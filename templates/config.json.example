@@ -1,5 +1,13 @@
 {
-  "backend": null,
+  "backend": "local",
+  "local": {
+    "path": "~/Dropbox/claude-workspaces"
+  },
+  "github": {
+    "token": "ghp_xxxxxxxxxxxx",
+    "repo": "your-username/claude-workspaces",
+    "branch": "main"
+  },
   "gitlab": {
     "host": "gitlab.com",
     "token": "<your-personal-access-token>",
