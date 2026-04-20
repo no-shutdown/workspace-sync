@@ -8,28 +8,23 @@
 
 ## 作用
 
-列出当前后端中已经保存的 workspace，并在列出后允许你直接选择一个继续恢复，不需要再手动输入一次 `pull`。
-
-## 适用场景
-
-- 你忘了之前保存过哪些 workspace
-- 你需要确认远端是否已经存在某个 workspace
-- 你准备执行 `pull` 或 `clean`
-- 你想先看列表，再从里面挑一个继续当前工作
+列出当前后端中已保存的 workspace，列出后直接引导用户选一个恢复，不需要再手动输入 pull。
 
 ## 执行步骤
 
-### Step 1: 读取 workspace 列表
+### Step 1: 运行列表脚本
 
-从 backend 获取所有 workspace 列表：
-- GitLab：见 `references/gitlab.md` #List
-- MinIO：见 `references/minio.md` #List
+```bash
+WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
+chmod +x "$WS_SKILL_DIR/scripts/ws-list.sh"
+bash "$WS_SKILL_DIR/scripts/ws-list.sh"
+```
 
-两种后端均返回 `name|version|updated_at` 格式，每行一条。
+脚本输出 `name|version|updated_at` 格式，每行一条；出错时打印 ❌ 提示并 exit 1。
 
 ### Step 2: 展示列表并引导选择
 
-整理成编号列表展示，**展示后立即追加选择引导**：
+将脚本输出整理为编号列表展示，**展示后立即追加选择引导**：
 
 ```
 1. feature-x     (v3, 2026-04-17T18:20:00+08:00)
@@ -42,34 +37,7 @@
 
 即使列表里只有一个 workspace，也先展示再确认，不擅自 pull。
 
-### Step 3: 解析用户选择
+### Step 3: 解析用户选择 → 进入 Pull 流程
 
-用户可以回复：
-- 列表**序号**（映射到当前刚展示的列表项）
-- workspace **精确名称**
-
+用户回复序号或精确名称 → 等价于 `/workspace-sync pull <name>`，进入 `action/pull.md`。
 序号或名称不合法时，明确报错并要求重新选择。
-
-### Step 4: 进入 Pull 流程
-
-直接把用户选择等价为 `/workspace-sync pull <selected-workspace>`，进入 `action/pull.md` 的执行步骤。
-
-## 示例
-
-```bash
-/workspace-sync list
-```
-
-看到列表后，可以直接回复：
-
-```text
-2
-```
-
-或者：
-
-```text
-feature-import
-```
-
-Claude 会把这次选择直接当作 `/workspace-sync pull feature-import` 处理。

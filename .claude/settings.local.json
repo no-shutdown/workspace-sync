@@ -3,7 +3,9 @@
     "allow": [
       "Bash(bash uninstall.sh --yes)",
       "Bash(bash install.sh)",
-      "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/tests/test-lib.sh\" \"D:/A-my/claude-code-workspace-sync/tests/test-detect-projects.sh\")"
+      "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/tests/test-lib.sh\" \"D:/A-my/claude-code-workspace-sync/tests/test-detect-projects.sh\")",
+      "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/scripts/ws-list.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-clean.sh\")",
+      "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/scripts/ws-push-prepare.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-push-upload.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-pull-fetch.sh\")"
     ]
   }
 }
