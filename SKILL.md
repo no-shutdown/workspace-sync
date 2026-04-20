@@ -1,49 +1,37 @@
 ---
 name: workspace-sync
-description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 git 项目状态)。支持 GitLab 或 MinIO 两种存储后端,首次使用会引导用户选择和配置。当用户输入 /workspace-sync、`workspace-sync push/pull/list`、或明确提到把当前对话/工作同步到云端、从云端恢复工作空间、跨设备继续之前工作时使用。`list` 不只是查看,还可以让用户直接从列表里选择一个工作空间继续。
+description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 git 项目状态)。支持 GitLab 或 MinIO 两种存储后端,首次使用会引导配置。无论用户明确输入 /workspace-sync 命令,还是只是提到"换台设备继续工作""下班想回家接着弄""把今天的进展同步到云端""记录一下工作状态以便切换设备",都应进入本 skill。list 不只是查看,列出后立即引导用户选一个 workspace 继续工作,不要等用户手动再打一遍 pull。
 ---
 
 # Workspace Sync
 
 ## 概述
 
-把当前对话的工作状态(对话摘要 + 涉及的所有 git 项目的 branch/upstream/HEAD)打包上传到云端。另一台设备 pull 下来后,Claude 读摘要就能恢复上下文;代码侧只恢复到已经提交并已推送的状态,不负责搬运本地未推/未提交改动。
+把当前对话的工作状态(对话摘要 + 涉及的所有 git 项目的 branch/upstream/HEAD)打包上传到云端。另一台设备 pull 下来后,Claude 读摘要就能恢复上下文;代码侧只恢复到已提交并已推送的状态,不搬运本地未推/未提交改动。
 
-**自动适配三种场景**(不需要区分模式):
-- 纯讨论:projects 为空,只存摘要和对话
-- 单项目:一次对话只改了一个 git 仓库
-- 多项目:一次对话修改了前端+后台等多个仓库
+自动适配三种场景(不需要区分模式):
+- **纯讨论**:projects 为空,只存摘要和对话
+- **单项目**:一次对话只改了一个 git 仓库
+- **多项目**:一次对话修改了前端+后台等多个仓库
 
 ## 存储后端
 
-支持两种,二选一(在首次使用时配置):
+支持两种,二选一(首次使用时配置):
 
-| 后端 | 用户需要准备的前置条件 |
-|------|------------------------|
-| **GitLab** | 一个**已存在**的空仓库,以及有 read/write 权限的 Personal Access Token |
-| **MinIO** | 一个**已存在**的 bucket,有读写权限的 access_key/secret_key,以及 `mc` 客户端已安装 |
+| 后端 | 前置条件 |
+|------|---------|
+| **GitLab** | 一个已存在的空仓库 + 有 read/write 权限的 Personal Access Token |
+| **MinIO** | 一个已存在的 bucket + 有读写权限的密钥 + 本机已装 `mc` 客户端 |
 
-**skill 不会自动创建仓库或 bucket**,如果目标不存在会直接报错并提示用户先去创建。
-
-## 何时触发
-
-用户说以下内容时进入本 skill:
-- `/workspace-sync push [<name>]`
-- `/workspace-sync pull <name>`
-- `/workspace-sync list`
-- `/workspace-sync clean <name>`
-- `/workspace-sync clean --all`
-- "把这次对话同步到云端"、"push 到工作空间"
-- "从 XX 工作空间继续"、"pull workspace XX"
-- "先列出工作空间,我选一个继续"
+skill 不会自动创建仓库或 bucket,目标不存在时直接报错。
 
 ## 配置文件
 
-`~/.claude/skills/workspace-sync/config.json`:
+`~/.claude/skills/workspace-sync/config.json`(参考 `templates/config.json.example`):
 
 ```json
 {
-  "backend": "gitlab" | "minio" | null,
+  "backend": "gitlab",
   "gitlab": {
     "host": "your.gitlab.com",
     "token": "glpat-xxx",
@@ -60,143 +48,32 @@ description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 g
   },
   "cache_dir": "~/.claude/workspace-cache",
   "local_paths_file": "~/.claude/skills/workspace-sync/local-paths.json",
-  "scan_roots": [
-    "D:/work",
-    "D:/src"
-  ]
+  "scan_roots": ["D:/work", "D:/src"]
 }
 ```
 
-`backend` 为 `null` 或字段不完整时,必须先跑首次配置流程。
+`backend` 为 `null` 或对应 backend 必填字段为空时,进入首次配置流程(见 `references/setup.md`)。
 
-## 工作空间目录结构(两种后端共用)
+## 工作空间目录结构
 
 ```
 <workspace-name>/
-├── manifest.json          (元数据 + 项目列表)
-├── summary.md             (对话摘要,按项目分段)
-├── conversation.jsonl     (完整对话备份)
-└── projects/
-    └── <project-name>/
-        └── meta.json      (remote/upstream/branch/head)
-```
-
-如果某些 skill 需要跨设备恢复工作区级状态,额外保存:
-
-```text
-<workspace-name>/
-└── skill-states/
+├── manifest.json
+├── summary.md
+├── conversation.jsonl
+├── projects/
+│   └── <project-name>/
+│       └── meta.json
+└── skill-states/              (含 skill 状态时才有)
     └── <skill-name>/
-        ├── manifest.json
-        └── <artifact>.tgz
+        └── <scope>-<state-name>/
+            ├── manifest.json
+            └── state.tgz
 ```
 
-这一层的边界必须明确:
-- `workspace-sync` 不猜测 skill 内部目录结构
-- `workspace-sync` 不理解 skill 内部格式
-- `workspace-sync` 只负责调用 skill 的 export/import、保存产物、记录结果
-- 哪些内容可导出/可恢复,由各 skill 通过统一契约自己定义
+## 关键数据格式
 
-## Skill State 标准接口
-
-每个要接入 `workspace-sync` 的 skill,如果需要同步自身状态,必须在自己的 skill 根目录提供:
-
-```text
-workspace-sync.contract.json
-```
-
-格式:
-
-```json
-{
-  "contract_version": 1,
-  "skill": "sdd",
-  "states": [
-    {
-      "name": "project-state",
-      "scope": "project",
-      "portability": "portable",
-      "sync_paths": [
-        ".sdd/specs",
-        ".sdd/tasks/current.json"
-      ]
-    },
-    {
-      "name": "global-cache",
-      "scope": "global",
-      "portability": "nonportable"
-    }
-  ]
-}
-```
-
-当需要自定义逻辑（路径转换、索引重建、schema 迁移等）时，改用 `export_command` + `import_command` 替代 `sync_paths`。两者不能同时用于同一个 state。
-
-字段约束:
-- `scope`:
-  - `project`: 绑定到某个项目工作区
-  - `global`: 绑定到当前设备上的全局 skill 状态
-- `portability`:
-  - `portable`: 可跨设备导出/导入
-  - `nonportable`: 不允许跨设备同步
-- `export_command` / `import_command`:
-  - 只有 `portable` 状态才允许提供
-  - 由 skill 自己负责实现
-
-标准规则:
-- `workspace-sync` 只处理声明为 `portable` 的状态
-- `project` 和 `global` 都允许存在,但都必须显式声明 portability
-- `nonportable` 状态一律不得导出
-- `workspace-sync` 不为任何 skill 实现专用执行器
-- 其他 skill 只要遵守该接口,就可以被 `workspace-sync` 编排
-
-## local-paths.json 格式
-
-`local_paths_file` 用于保存 “remote key -> local path” 的本机映射。
-推荐格式:
-
-```json
-{
-  "version": 1,
-  "projects": {
-    "gitlab.yc.com/ukon/shanks-manage": {
-      "path": "D:\\A-yc-work\\ukon\\shanks-manage",
-      "repo_name": "shanks-manage",
-      "last_verified_at": "2026-04-16T10:00:00+08:00"
-    },
-    "gitlab.yc.com/ukon/shanks-manage-frontend": {
-      "path": "D:\\A-yc-work\\ukon\\shanks-manage-frontend",
-      "repo_name": "shanks-manage-frontend",
-      "last_verified_at": "2026-04-16T10:00:00+08:00"
-    }
-  }
-}
-```
-
-remote key 必须是规范化后的 git remote,不要直接保存原始字符串。
-规范化规则:
-- 去掉协议头,如 `ssh://`、`https://`
-- 去掉用户信息,如 `git@`
-- 把 `host:path` 和 `host/path` 统一成 `host/path`
-- 去掉结尾 `.git`
-- `host` 统一转成小写
-
-例如:
-- `git@gitlab.yc.com:ukon/shanks-manage.git`
-- `ssh://git@gitlab.yc.com/ukon/shanks-manage.git`
-- `https://gitlab.yc.com/ukon/shanks-manage.git`
-
-都应规范化为:
-
-```text
-gitlab.yc.com/ukon/shanks-manage
-```
-
-`scan_roots` 是可选字段:
-- 用于 `pull` 时扫描本机候选 git 仓库
-- 建议显式配置为 1~3 个稳定的代码根目录,避免扫盘范围过大
-
-## manifest.json 格式
+### manifest.json
 
 ```json
 {
@@ -207,6 +84,7 @@ gitlab.yc.com/ukon/shanks-manage
   "source_device": "company-pc",
   "source_cwd": "D:\\A-ukon-work\\shanks-manage",
   "created_at": "2026-04-15T18:00:00+08:00",
+  "updated_at": "2026-04-17T10:30:00+08:00",
   "projects": [
     {
       "name": "shanks-manage",
@@ -216,938 +94,132 @@ gitlab.yc.com/ukon/shanks-manage
       "head": "abc123"
     }
   ],
-  "skill_states": [
-    {
-      "skill": "sdd",
-      "state": "project-state",
-      "scope": "project",
-      "portability": "portable",
-      "project": "shanks-manage",
-      "status": "exported",
-      "artifact": "skill-states/sdd/shanks-manage-project-state/state.tgz",
-      "artifacts": [
-        "skill-states/sdd/shanks-manage-project-state/manifest.json",
-        "skill-states/sdd/shanks-manage-project-state/state.tgz"
-      ]
-    }
-  ]
+  "skill_states": []
 }
 ```
 
-`skill_states` 可以为空或省略。启用 skill 状态同步后:
-- `status=exported`: 该 skill 成功导出了可移植的 workspace state
-- `status=skipped`: 检测到该 skill,但当前环境无法导出
-- `status=not_exported`: 当前 workspace 没有启用该 skill 的状态同步
-- `status=deferred`: 导出产物存在,但当前环境暂不导入
-- `artifact`: 主归档文件路径,用于快速定位主要产物
-- `artifacts`: 可选,完整列出该 state 对应的所有文件
+字段说明:
+- `created_at`: workspace 首次创建时间,不随版本更新变化
+- `updated_at`: 每次 push 时更新为当前时间,list 命令展示此字段
+- `version` / `previous_version`: 乐观并发控制,每次 push 递增
 
-版本字段:
-- `version`: 当前 workspace 的远端版本号,每次 push 递增
-- `previous_version`: 本次 push 之前看到的远端版本
-- `workspace-sync` 必须用这两个字段做乐观并发校验
-
-这里记录的是**导出/恢复结果**,不是 skill 的内部数据结构。
-
-## summary.md 格式
+### summary.md 格式
 
 ```markdown
 # 工作空间:<name>
 
 ## 整体目标
-<1-2 句描述核心目标>
+<1-2 句>
 
 ## 讨论脉络
-<纯讨论场景:达成的共识、待议问题、关键决策;项目场景可省略>
+<纯讨论场景:共识/待议/决策>
 
 ## 项目:shanks-manage
 - **分支**:feature/import
 - **已完成**:...
 - **进行中**:(卡在哪)
-- **下一步**:<必须具体>
+- **下一步**:<必须具体,如"继续写 XXController">
 - **关键文件**:path:line
-
-## 项目:shanks-admin
-...
 ```
+
+### local-paths.json 格式
+
+```json
+{
+  "version": 1,
+  "projects": {
+    "gitlab.yc.com/ukon/shanks-manage": {
+      "path": "D:\\A-yc-work\\ukon\\shanks-manage",
+      "repo_name": "shanks-manage",
+      "last_verified_at": "2026-04-16T10:00:00+08:00"
+    }
+  }
+}
+```
+
+remote key 用 `ws_normalize_remote`(来自 `scripts/workspace-sync-lib.sh`)规范化:去掉协议头/用户信息,host 转小写,去掉 `.git` 后缀,`host:path` 统一为 `host/path`。
 
 ---
 
 # 通用执行入口
 
-## Step 0: 加载配置 & 检查完整性
+## Step 0: 加载配置 & 校验
 
 ```bash
-CONFIG="$HOME/.claude/skills/workspace-sync/config.json"
-read_json() { grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$CONFIG" | sed -E 's/^"[^"]*"[[:space:]]*:[[:space:]]*"//; s/"$//'; }
-read_json_nested() {
-  # read_json_nested gitlab token → 读嵌套字段
-  python3 -c "import json,sys; c=json.load(open('$CONFIG')); print((c.get('$1') or {}).get('$2','') or '')" 2>/dev/null \
-    || node -e "const c=require('$CONFIG'); console.log((c.$1||{}).$2||'')" 2>/dev/null
-}
+WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
+CONFIG="$WS_SKILL_DIR/config.json"
 
-BACKEND=$(python3 -c "import json; print(json.load(open('$CONFIG')).get('backend') or '')" 2>/dev/null)
+BACKEND=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$CONFIG'))
+    print(d.get('backend') or '')
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+```
 
+`BACKEND` 为空或对应 backend 必填字段缺失 → 读取 `references/setup.md` 执行首次配置,完成后继续当前命令。
+
+**validate_ws_name**(所有涉及 WS_NAME 的命令在操作前先调用):
+
+```bash
 validate_ws_name() {
   local name="$1"
+  local bad_chars='[[:space:][:cntrl:]/\<>:"|?*]'
   [[ -n "$name" ]] || return 1
   [[ "$name" != "." && "$name" != ".." ]] || return 1
-  [[ "$name" != *[[:space:]]* ]] || return 1
-  [[ "$name" != *[[:cntrl:]]* ]] || return 1
-  [[ "$name" != *"/"* ]] || return 1
-  [[ "$name" != *"\\"* ]] || return 1
-  [[ "$name" != *"<"* ]] || return 1
-  [[ "$name" != *">"* ]] || return 1
-  [[ "$name" != *":"* ]] || return 1
-  [[ "$name" != *"\""* ]] || return 1
-  [[ "$name" != *"|"* ]] || return 1
-  [[ "$name" != *[?]* ]] || return 1
-  [[ "$name" != *[*]* ]] || return 1
+  [[ ! "$name" =~ $bad_chars ]] || return 1
 }
-```
 
-如果 `BACKEND` 为空或对应 backend 的必填字段为空 → 进入 **首次配置流程**(见下方)。
-
-配置完整后按 backend 分派到对应实现。
-
----
-
-# 首次配置流程(Claude 主导的交互)
-
-**触发条件**:config.json 中 `backend=null` 或对应 backend 的必填字段缺失。
-
-**Claude 必须按下面这个顺序跟用户交互,不要一次问所有东西:**
-
-## 第 1 步:选择后端
-
-```
-Claude 输出:
-  这是你第一次使用 workspace-sync,请选择云端存储后端:
-
-  [1] GitLab   - 把工作空间作为 commit 推到一个已存在的 GitLab 仓库
-                 你需要准备:仓库地址 + Personal Access Token
-  
-  [2] MinIO    - 把工作空间作为对象存到一个已存在的 bucket 的某个前缀下
-                 你需要准备:endpoint、access_key、secret_key、bucket 名
-                 另外本机需要装 mc 客户端(MinIO CLI)
-
-  请回复 1 或 2。
-```
-
-等用户回复。
-
-## 第 2 步(如果选 GitLab):收集 GitLab 配置
-
-一次问一个字段,收齐后**立即验证仓库存在**:
-
-```
-Claude 问:
-  1. GitLab 主机(例如 gitlab.com 或 your.gitlab.com):
-  2. Personal Access Token(scope 需要 api + read_repository + write_repository):
-  3. 仓库路径(namespace/name 格式,例如 your-name/claude-workspaces)
-     注意: 必须是一个已存在的仓库,skill 不会帮你创建
-  4. 使用的分支(默认 main,可直接回车):
-```
-
-**验证仓库存在:**
-```bash
-GITLAB_HOST="..."
-GITLAB_TOKEN="..."
-GITLAB_PROJECT_PATH="your-name/claude-workspaces"
-ENC_PATH=$(printf '%s' "$GITLAB_PROJECT_PATH" | sed 's|/|%2F|g')
-
-RESULT=$(no_proxy="$GITLAB_HOST" curl -s -o /dev/null -w "%{http_code}" \
-  --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://${GITLAB_HOST}/api/v4/projects/${ENC_PATH}")
-
-if [[ "$RESULT" != "200" ]]; then
-  echo "❌ 仓库验证失败 (HTTP $RESULT)"
-  # 401 = token 无效/过期
-  # 404 = 仓库不存在或无权限
-  exit 1
-fi
-echo "✓ 仓库验证通过"
-```
-
-验证失败 → 告诉用户具体原因(401 还是 404),停止配置,让用户修复后重试。
-验证成功 → 写 config.json,继续原来的命令。
-
-## 第 3 步(如果选 MinIO):收集 MinIO 配置
-
-**先检查 mc 是否安装:**
-```bash
-if ! command -v mc &>/dev/null; then
-  echo "❌ 未找到 mc(MinIO 客户端)"
-  echo "请先安装:"
-  echo "  Windows: scoop install mc  或  choco install minio-client"
-  echo "  macOS:   brew install minio/stable/mc"
-  echo "  Linux:   curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc && chmod +x mc"
-  exit 1
-fi
-```
-
-mc 可用后,依次问:
-```
-  1. MinIO endpoint (例如 https://minio.example.com):
-  2. Access Key:
-  3. Secret Key:
-  4. Bucket 名称(必须已存在):
-  5. Bucket 内的前缀/文件夹(例如 workspaces/,留空则存在根):
-```
-
-**配置 mc alias 并验证 bucket 存在:**
-```bash
-MC_ALIAS="claude-workspace-sync"
-mc alias set "$MC_ALIAS" "$MINIO_ENDPOINT" "$MINIO_AK" "$MINIO_SK" --api S3v4
-
-# 验证 bucket
-if ! mc ls "$MC_ALIAS/$MINIO_BUCKET" &>/dev/null; then
-  echo "❌ Bucket '$MINIO_BUCKET' 不存在或无权限访问"
-  exit 1
-fi
-echo "✓ Bucket 验证通过"
-```
-
-验证通过 → 写 config.json,继续原来的命令。
-
-## 第 4 步:写入 config.json
-
-用 Write 工具(或 python inline)更新 config.json,只改相关字段,保留其他。
-
-写入完成后 Claude 输出:
-```
-✓ 配置已保存。继续执行 /workspace-sync <原命令>...
-```
-
-然后继续原本用户请求的操作。
-
----
-
-# Push 流程(backend 无关部分)
-
-## Step 1: 加载配置(同上 Step 0)
-
-## Step 2: 定位当前 session jsonl
-
-```bash
-WIN_PWD=$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")
-ENCODED_CWD=$(echo "$WIN_PWD" | sed 's|[:\\/]|-|g')
-SESSIONS_DIR="$HOME/.claude/projects/$ENCODED_CWD"
-SESSION_JSONL=$(ls -t "$SESSIONS_DIR"/*.jsonl 2>/dev/null | head -1)
-[[ -z "$SESSION_JSONL" ]] && { echo "未找到当前会话 jsonl"; exit 1; }
-```
-
-## Step 3: 自动识别涉及的项目
-
-```bash
-SCRIPT="$HOME/.claude/skills/workspace-sync/scripts/detect-projects.sh"
-chmod +x "$SCRIPT"
-PROJECTS_JSON=$(bash "$SCRIPT" "$SESSION_JSONL")
-```
-
-## Step 4: 确认
-
-```
-检测到本次对话涉及 N 个项目:
-  [1] shanks-manage  (feature/import, 3 个文件)
-  ...
-工作空间名称: <用户传入或建议>
-确认推送? [Y/n]
-```
-
-N=0 → 纯讨论模式继续。
-
-所有接受 `<name>` 的命令(至少 `push`/`pull`)在真正读写本地路径或云端对象前,都必须先校验工作空间名称。
-
-Push 确认通过后先校验工作空间名称:
-
-```bash
 validate_ws_name "$WS_NAME" || {
   echo "❌ 非法工作空间名称: $WS_NAME"
-  echo "   支持中文命名"
-  echo "   不允许空白、路径分隔符、控制字符或 Windows 非法文件名字符"
+  echo "   支持中文命名,不允许空白、路径分隔符、控制字符或 Windows 非法文件名字符"
   exit 1
 }
-```
-
-## Step 5: 准备工作空间暂存目录(本地 staging)
-
-```bash
-CACHE_DIR="${CACHE_DIR:-$HOME/.claude/workspace-cache}"
-STAGE_ROOT="$CACHE_DIR/staging"
-STAGE_DIR="$STAGE_ROOT/$WS_NAME"
-[[ "$STAGE_DIR" == "$STAGE_ROOT/"* ]] || { echo "非法 staging 路径"; exit 1; }
-rm -rf -- "$STAGE_DIR"
-mkdir -p "$STAGE_DIR/projects"
-
-# 复制 session jsonl
-cp "$SESSION_JSONL" "$STAGE_DIR/conversation.jsonl"
-```
-
-## Step 6: 读取当前远端版本并计算下一个版本号
-
-```bash
-CURRENT_REMOTE_VERSION=0
-
-# backend-specific:
-# - 如果远端 workspace 已存在,读取其 manifest.json.version
-# - 不存在则保持 0
-
-NEXT_VERSION=$((CURRENT_REMOTE_VERSION + 1))
-```
-
-如果读取失败但远端对象存在,直接报错,不要盲目覆盖。
-
-## Step 7: 校验每个项目已经提交并推送
-
-当前原则是:工作空间同步重点是聊天上下文恢复,代码恢复只支持**已经提交且已经推送**的状态。
-
-```bash
-for each detected project:
-  cd "$PROJECT_PATH"
-
-  [[ -z "$(git status --porcelain)" ]] || {
-    echo "❌ 项目 $PROJECT_NAME 存在未提交改动,请先 commit/push 后再执行 workspace-sync push"
-    exit 1
-  }
-
-  UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
-  [[ -n "$UPSTREAM" ]] || {
-    echo "❌ 项目 $PROJECT_NAME 当前分支没有上游分支,请先 push -u"
-    exit 1
-  }
-
-  git fetch --prune
-  COUNTS=$(git rev-list --left-right --count HEAD...@{u})
-  AHEAD=$(echo "$COUNTS" | awk '{print $1}')
-  BEHIND=$(echo "$COUNTS" | awk '{print $2}')
-  [[ "$AHEAD" == "0" && "$BEHIND" == "0" ]] || {
-    echo "❌ 项目 $PROJECT_NAME 与上游分支不同步(ahead=$AHEAD behind=$BEHIND),请先同步代码后再执行 workspace-sync push"
-    exit 1
-  }
-```
-
-只要有一个项目不满足,整个 push 直接终止。不要在代码状态不确定时生成可跨设备恢复的 workspace。
-
-## Step 8: Claude 生成 summary.md 和 manifest.json
-
-Claude 用 Read 工具读 session jsonl,然后用 Write 工具写入:
-- `$STAGE_DIR/summary.md`
-- `$STAGE_DIR/manifest.json`
-
-**摘要生成原则:**
-1. 整体目标:从对话开头几条用户消息提炼,不超过 2 句
-2. 按项目分段:每个 detect 到的项目一段
-3. 讨论脉络(纯讨论时):共识/待议/决策
-4. "下一步"必须具体:"继续写 XXController" > "继续开发"
-
-写 manifest 时必须包含:
-- `version: NEXT_VERSION`
-- `previous_version: CURRENT_REMOTE_VERSION`
-
-## Step 9: 记录每个项目的 git 指针
-
-```bash
-for each detected project:
-  PROJ_DIR="$STAGE_DIR/projects/$PROJECT_NAME"
-  mkdir -p "$PROJ_DIR"
-  (
-    cd "$PROJECT_PATH"
-    UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}')
-    # 写 meta.json(见 manifest 格式)
-  )
-```
-
-## Step 10: 调用 skill state 标准接口导出 portable 状态
-
-如果本次 workspace 里明确涉及某个 skill,Claude 应该尝试:
-1. 找到该 skill 的安装目录
-2. 读取 `workspace-sync.contract.json`
-3. 遍历其中 `states`
-4. 只对 `portability=portable` 的状态调用 `export_command`
-5. 为每个 state 准备独立输出目录
-6. 按 contract 文档中的推荐参数调用 `export_command`
-7. 把导出结果写入 `$STAGE_DIR/skill-states/` 和 workspace `manifest.json`
-
-如果本仓库提供了通用执行器,优先使用:
-- `scripts/run-skill-state-export.sh`
-- 如果要一次导出单个 skill 的全部 portable states,优先使用:
-  - `scripts/export-skill-states.sh`
-
-推荐输出目录:
-- `project` 作用域:
-  - `$STAGE_DIR/skill-states/<skill-name>/<project-name>-<state-name>/`
-- `global` 作用域:
-  - `$STAGE_DIR/skill-states/<skill-name>/global-<state-name>/`
-
-推荐调用方式:
-```bash
-"$EXPORT_COMMAND" \
-  --workspace-name "$WS_NAME" \
-  --state-name "$STATE_NAME" \
-  --scope "$STATE_SCOPE" \
-  --project-name "$PROJECT_NAME" \
-  --project-path "$PROJECT_PATH" \
-  --output-dir "$STATE_OUTPUT_DIR"
-```
-
-调用约束:
-- `scope=global` 时不传 `--project-name` / `--project-path`
-- `export_command` 成功时退出码必须是 `0`
-- `export_command` 失败时,`workspace-sync` 只记录失败,不猜 skill 内部目录
-
-推荐输出结构:
-```text
-$STATE_OUTPUT_DIR/
-├── manifest.json
-└── state.tgz
-```
-
-其中 `manifest.json` 推荐至少包含:
-```json
-{
-  "skill": "sdd",
-  "state": "project-state",
-  "scope": "project",
-  "project": "shanks-manage",
-  "format_version": 1,
-  "artifacts": [
-    "state.tgz"
-  ]
-}
-```
-
-写入 workspace `manifest.json` 时:
-- `artifact` 写主归档路径,通常指向 `state.tgz`
-- `artifacts` 可选写完整文件列表
-- `status=exported` 只在 `export_command` 成功且产物存在时记录
-
-导出约束:
-- `pid`、`lock`、`tmp`、daemon 状态、设备绑定信息不得标记为 `portable`
-- `global` 状态是否可同步,完全由 contract 的 `portability` 决定
-- `workspace-sync` 不再区分“skill 状态”和“skill 全局缓存”,统一按 `scope + portability` 处理
-- 如果 skill 没有 contract:
-  - 记录 `status=not_exported`
-  - 不要猜测其目录结构
-- 如果 contract 存在但 export 失败:
-  - 记录 `status=skipped`
-  - 不影响整个 workspace 的上下文保存
-
-如果启用该能力,manifest 中要额外写入 `skill_states` 的导出结果。
-
-## Step 11: 上传前做一次乐观并发校验
-
-在真正覆盖远端 workspace 之前,再读取一次远端版本:
-
-```bash
-LATEST_REMOTE_VERSION=<backend-specific read>
-```
-
-如果 `LATEST_REMOTE_VERSION != CURRENT_REMOTE_VERSION`,说明在本次 push 期间远端已被其他设备更新。
-
-Claude 必须明确提示用户:
-- 你本地基于的版本: `CURRENT_REMOTE_VERSION`
-- 当前远端版本: `LATEST_REMOTE_VERSION`
-- 计划提交的新版本原本是: `NEXT_VERSION`
-
-然后询问用户是否继续:
-- 如果继续:
-  - 重新设 `NEXT_VERSION=LATEST_REMOTE_VERSION+1`
-  - 重写 manifest 中的 `version`/`previous_version`
-  - 再执行上传
-- 如果取消:
-  - 直接停止本次 push
-
-## Step 12: 调用 backend-specific 上传
-
-根据 `$BACKEND` 分派到对应实现(见下方"后端实现")。
-
-## Step 13: 报告成功
-
-```
-✓ 工作空间已推送: <name>
-  - 后端: gitlab / minio
-  - 版本: v<NEXT_VERSION> (previous v<CURRENT_REMOTE_VERSION>)
-  - 涉及项目: N 个
-  - 代码前提: 所有项目均已提交并已推送
-  - skill 状态: 按 skill contract 中声明的 portable 状态导出
-  - 在另一设备用 /workspace-sync pull <name> 恢复
 ```
 
 ---
 
-# Pull 流程(backend 无关部分)
+# Push 流程
 
-## Step 1: 加载配置
+> 详细步骤见 `action/push.md`
 
-## Step 2: 根据 backend 下载工作空间到本地 staging
+---
 
-```bash
-validate_ws_name "$WS_NAME" || {
-  echo "❌ 非法工作空间名称: $WS_NAME"
-  echo "   支持中文命名"
-  echo "   不允许空白、路径分隔符、控制字符或 Windows 非法文件名字符"
-  exit 1
-}
+# Pull 流程
 
-CACHE_DIR="${CACHE_DIR:-$HOME/.claude/workspace-cache}"
-STAGE_ROOT="$CACHE_DIR/staging"
-STAGE_DIR="$STAGE_ROOT/$WS_NAME"
-[[ "$STAGE_DIR" == "$STAGE_ROOT/"* ]] || { echo "非法 staging 路径"; exit 1; }
-rm -rf -- "$STAGE_DIR"
-mkdir -p "$STAGE_DIR"
-```
-
-backend-specific 下载(见下方)。
-
-## Step 3: 读 manifest.json,遍历 projects
-
-对每个 project:
-1. 把 `project.remote` 规范化为 `remote_key`
-2. 先查 `local-paths.json`
-   - 如果命中:
-     - 校验路径存在
-     - 校验是 git 仓库
-     - 校验 `git config --get remote.origin.url` 规范化后与 `remote_key` 一致
-     - 校验通过 → 直接使用
-     - 校验失败 → 删除旧映射,继续下一步
-3. 如果 `local-paths.json` 没有命中,或旧映射校验失败:
-   - 只扫描 `scan_roots`
-   - 对每个候选本地仓库读取:
-     - git root
-     - `remote.origin.url`
-     - repo name
-     - branch
-     - 是否干净
-     - 是否包含目标 `head`
-   - 按 `remote_key` 做精确匹配
-4. 如果精确匹配唯一:
-   - 自动选用该路径
-   - 写回 `local-paths.json`
-5. 如果精确匹配到多个候选:
-   - 不要自动选择
-   - 向用户展示每个候选的:
-     - path
-     - branch
-     - 是否干净
-     - 是否已包含 `head`
-   - 让用户确认后写回 `local-paths.json`
-6. 如果没有 `remote_key` 精确匹配:
-   - 可以用 `project.name` 或 repo name 做候选提示
-   - 不要仅凭 repo name 自动选择
-   - 仍找不到 → 询问用户本地路径,校验通过后写入 `local-paths.json`
-7. 拿到确认后的本地路径后,执行:
-   - 如果本地项目有未提交改动:`git status --porcelain` 非空 → 报错并跳过该项目,不要覆盖当前工作区
-   - `git fetch --all --prune`
-   - 校验 `meta.json`/`manifest.json` 里的 `head` 是否存在:`git cat-file -e <head>^{commit}`
-   - 不存在 → 报错并跳过该项目
-   - 存在 → `git checkout -B <branch> <head>`
-   - 如果记录了 `upstream`,则把本地 branch 重新关联到该 upstream
-
-自动匹配约束:
-- 只允许 `remote_key` 唯一命中时自动恢复
-- 不要用 `project.name`、branch、`source_cwd` 单独决定本地路径
-- 多候选或弱提示都必须用户确认
-
-pull 的汇报必须分两层:
-- 工作空间上下文恢复: `summary.md` + `conversation.jsonl`
-- 项目代码恢复: exact / skipped
-
-再增加第三层:
-- skill 状态恢复: restored / skipped / missing / deferred
-
-含义:
-- `restored`: skill 的可移植 workspace state 已恢复
-- `skipped`: 检测到该 skill,但当前环境或版本不满足恢复条件
-- `missing`: 本次 workspace 明确没有导出该 skill 状态
-- `deferred`: 技能状态归档已保留,但需等 skill 安装后再 import
-
-只要摘要成功恢复,就可以继续对话;但如果某些项目被 skip,Claude 必须明确告诉用户这些项目的代码现场没有完全恢复,不能把 summary 当作当前代码事实。
-
-如果工作空间明确提到了某个 skill,但该 skill 状态没有恢复成功,Claude 必须额外说明:
-- 当前 workspace 涉及该 skill
-- 但该 skill 的工作区状态未完全恢复
-- 与该 skill 相关的摘要只能作为参考,不能当作当前现场事实
-
-## Step 4: 调用 skill state 标准接口导入 portable 状态
-
-对 `manifest.skill_states` 中的每一项:
-- 找到对应 skill 的安装目录
-- 读取其 `workspace-sync.contract.json`
-- 找到匹配的 `state`
-- 如果存在 `import_command`,则按约定参数执行导入
-
-如果本仓库提供了通用执行器,优先使用:
-- `scripts/run-skill-state-import.sh`
-- 如果要一次恢复单个 skill 在 manifest 中的全部状态,优先使用:
-  - `scripts/import-skill-states.sh`
-
-推荐调用方式:
-```bash
-"$IMPORT_COMMAND" \
-  --workspace-name "$WS_NAME" \
-  --state-name "$STATE_NAME" \
-  --scope "$STATE_SCOPE" \
-  --project-name "$PROJECT_NAME" \
-  --project-path "$PROJECT_PATH" \
-  --input-dir "$STATE_INPUT_DIR"
-```
-
-调用约束:
-- `scope=global` 时不传 `--project-name` / `--project-path`
-- `STATE_INPUT_DIR` 指向该 state 在 staging 目录中的导出目录
-- 如果 `artifacts` 存在,优先按 `artifacts` 校验文件完整性
-- 如果只有 `artifact`,至少要校验主归档文件存在
-- 不要跳过 contract 直接按文件名猜测导入逻辑
-
-导入前检查:
-- skill 已安装
-- contract 存在且 `contract_version` 可识别
-- `state` 在 contract 中存在且 `portability=portable`
-- `input-dir` 存在
-
-恢复规则:
-- skill 未安装 → `deferred`
-- contract 缺失 → `deferred`
-- contract 存在但 state 不兼容/版本不符 → `skipped`
-- import 成功 → `restored`
-- 本次 workspace 没有该 skill 的导出记录 → `missing`
-
-## Step 5: 注入 summary.md 到当前上下文
-
-Claude 用 Read 工具读 summary.md,告诉用户恢复了什么,准备继续工作。
+> 详细步骤见 `action/pull.md`
 
 ---
 
 # List 流程
 
-## Step 1: 加载配置并读取当前 backend 下的 workspace 列表
-
-`list` 不是纯只读说明动作,它是用户进入“选择一个继续”流程的入口之一。
-
-Claude 必须先列出当前 backend 下可用的 workspace,并尽量附带这些字段:
-- 序号
-- workspace 名称
-- 版本号
-- 最近更新时间(如果 manifest 可读)
-
-如果拿不到版本或更新时间:
-- 允许退化为只展示名称
-- 但仍然要保留“可选择继续”的交互
-
-如果列表为空,明确告知当前 backend 下没有可恢复的 workspace,然后停止。
-
-## Step 2: 展示列表后立即提供选择入口
-
-当用户执行 `/workspace-sync list` 时,Claude 展示完列表后,默认都要补一句明确引导:
-
-```text
-回复序号或 workspace 名称,我就继续恢复那个工作空间。
-如果你现在只想查看列表,回复 cancel 即可。
-```
-
-如果用户原始意图本来就是“列出后选一个继续”“看看有哪些工作空间然后继续之前的任务”,则更不能停在列表本身,必须主动进入选择步骤,不要要求用户重新手打一遍 `/workspace-sync pull <name>`。
-
-## Step 3: 解析用户选择
-
-用户可以用以下任一方式选择要继续的 workspace:
-- 列表序号
-- workspace 精确名称
-
-解析规则:
-- 序号必须映射到当前刚展示过的列表项
-- 名称必须精确匹配一个 workspace
-- 如果名称或序号不合法,明确报错并要求重新选择
-- 如果名称存在歧义(理论上不应发生,但如果展示层做了截断),必须展示完整名称后重新确认
-
-## Step 4: 选定后直接进入 Pull 流程
-
-一旦用户完成选择,Claude 应把这次操作等价视为:
-
-```bash
-/workspace-sync pull <selected-workspace>
-```
-
-也就是说:
-- 不要再要求用户手动输入一次 `pull`
-- 直接复用下方 Pull 流程
-- 最终回复中明确说明当前是从 `list` 的选择结果继续恢复
-
-交互约束:
-- 仅执行了 `/workspace-sync list` 但用户尚未选择之前,不要自动 pull
-- 即使列表里只有一个 workspace,也先展示并确认,不要擅自恢复
+> 详细步骤见 `action/list.md`
 
 ---
 
 # Clean 流程
 
-## Step 1: 解析命令
-
-支持:
-- `/workspace-sync clean <name>`
-- `/workspace-sync clean --all`
-
-不支持部分 pull,也不做自动 TTL 清理。
-
-## Step 2: 列出将要删除的内容
-
-`clean <name>`:
-- 远端保存的 `<name>`
-- 本地 staging 缓存中的 `<name>`
-- 本地 pending/deferred skill state 中与 `<name>` 相关的缓存
-
-`clean --all`:
-- 当前 backend 下的全部 workspace
-- 本地全部 workspace staging 缓存
-- 本地全部 pending/deferred skill state 缓存
-
-## Step 3: 二次确认
-
-Claude 必须先展示将删除的目标,然后确认:
-
-```text
-将删除以下内容:
-  - 远端 workspace: <name>
-  - 本地缓存: <name>
-
-确认继续? [y/N]
-```
-
-`clean --all` 必须使用更强确认:
-
-```text
-这会删除当前 backend 下的全部 workspace 及本地缓存。
-请明确回复: DELETE ALL
-```
-
-## Step 4: 执行删除
-
-先删除远端,再删除本地缓存。每一步都必须做路径校验,避免误删。
-
-## Step 5: 报告结果
-
-```text
-✓ 已清理 workspace: <name>
-  - 远端: deleted
-  - 本地缓存: deleted
-  - pending skill state: deleted
-```
+> 详细步骤见 `action/clean.md`
 
 ---
 
-# 后端实现:GitLab
+# Skill State 同步
 
-## Setup 验证
+通过 `docs/skill-state-contract.md` 中的标准接口实现。
 
-见首次配置流程第 2 步。
+Push 时:遍历涉及的 skill,对 `portability=portable` 的 state 导出;
+优先使用 `scripts/export-skill-states.sh` 统一编排。
 
-## 准备本地 clone(push/pull/list 都需要)
+Pull 时:读 manifest.skill_states,调用对应 skill 的 import;
+优先使用 `scripts/import-skill-states.sh` 统一编排。
 
-```bash
-LOCAL_REPO="$HOME/.claude/workspace-cache/gitlab/$(echo $GITLAB_PROJECT_PATH | sed 's|/|_|g')"
-
-if [[ ! -d "$LOCAL_REPO/.git" ]]; then
-  mkdir -p "$(dirname "$LOCAL_REPO")"
-  no_proxy="$GITLAB_HOST" git clone \
-    "https://oauth2:${GITLAB_TOKEN}@${GITLAB_HOST}/${GITLAB_PROJECT_PATH}.git" \
-    "$LOCAL_REPO"
-else
-  (cd "$LOCAL_REPO" && no_proxy="$GITLAB_HOST" git pull --ff-only)
-fi
-```
-
-**⚠ clone 失败就直接报错退出**,不尝试创建。
-
-## Push
-
-```bash
-WS_DIR="$LOCAL_REPO/$WS_NAME"
-
-# Step 6: 读取 staging 开始前的远端版本(用于后续乐观并发校验的基线)
-CURRENT_REMOTE_VERSION=0
-if [[ -f "$WS_DIR/manifest.json" ]]; then
-  CURRENT_REMOTE_VERSION=$(python3 -c "import json; print(json.load(open(r'$WS_DIR/manifest.json')).get('version', 0) or 0)" 2>/dev/null || echo 0)
-fi
-
-# ... (Steps 7–10: 校验项目状态 / 生成 summary.md + manifest.json / 导出 skill states) ...
-
-# Step 11: 上传前再 pull 一次,重新读取远端版本做乐观并发校验
-(cd "$LOCAL_REPO" && no_proxy="$GITLAB_HOST" git pull --ff-only 2>/dev/null || true)
-LATEST_REMOTE_VERSION=0
-if [[ -f "$WS_DIR/manifest.json" ]]; then
-  LATEST_REMOTE_VERSION=$(python3 -c "import json; print(json.load(open(r'$WS_DIR/manifest.json')).get('version', 0) or 0)" 2>/dev/null || echo 0)
-fi
-
-if [[ "$LATEST_REMOTE_VERSION" != "$CURRENT_REMOTE_VERSION" ]]; then
-  echo "⚠ 并发冲突: 你本地基于版本 v${CURRENT_REMOTE_VERSION},当前远端已是 v${LATEST_REMOTE_VERSION}"
-  echo "  你计划提交的新版本原本是 v$((CURRENT_REMOTE_VERSION + 1))"
-  echo "  如果继续,将基于最新远端版本提交 v$((LATEST_REMOTE_VERSION + 1))"
-  # 询问用户是否继续,如果继续则重置版本基线
-  # 如果用户取消则 exit 0
-  CURRENT_REMOTE_VERSION=$LATEST_REMOTE_VERSION
-fi
-NEXT_VERSION=$((CURRENT_REMOTE_VERSION + 1))
-# 重写 manifest 中的 version / previous_version 字段后再进行文件覆盖
-
-[[ "$WS_DIR" == "$LOCAL_REPO/"* ]] || { echo "非法 workspace 路径"; exit 1; }
-rm -rf -- "$WS_DIR"
-mkdir -p "$WS_DIR"
-cp -r "$STAGE_DIR"/* "$WS_DIR/"
-
-(
-  cd "$LOCAL_REPO"
-  git checkout "$GITLAB_BRANCH" 2>/dev/null || git checkout -b "$GITLAB_BRANCH"
-  git add "$WS_NAME"
-  git -c user.email="workspace-sync@local" -c user.name="workspace-sync" \
-      commit -m "workspace: update $WS_NAME v${NEXT_VERSION} from $(hostname)" || echo "nothing to commit"
-  no_proxy="$GITLAB_HOST" git push origin "$GITLAB_BRANCH"
-)
-```
-
-## Pull
-
-```bash
-# 先确保 LOCAL_REPO 是最新的(见"准备本地 clone")
-WS_DIR="$LOCAL_REPO/$WS_NAME"
-if [[ ! -d "$WS_DIR" ]]; then
-  echo "工作空间 $WS_NAME 不存在"
-  exit 1
-fi
-# 复制到 staging
-cp -r "$WS_DIR"/* "$STAGE_DIR/"
-```
-
-## List
-
-```bash
-cd "$LOCAL_REPO"
-for WS in */; do
-  WS="${WS%/}"
-  [[ "$WS" == ".git" ]] && continue
-  [[ -f "$WS/manifest.json" ]] || continue
-  VERSION=$(python3 -c "import json; print(json.load(open(r'$WS/manifest.json')).get('version', '-'))" 2>/dev/null || echo "-")
-  UPDATED_AT=$(python3 -c "import json; print(json.load(open(r'$WS/manifest.json')).get('updated_at', '-'))" 2>/dev/null || echo "-")
-  echo "$WS|$VERSION|$UPDATED_AT"
-done
-```
-
-Claude 展示时应整理成编号列表,例如:
-
-```text
-1. feature-x (v3, updated 2026-04-17T18:20:00Z)
-2. bugfix-login (v1, updated 2026-04-16T09:10:00Z)
-
-回复序号或 workspace 名称,我就继续恢复那个工作空间。
-如果你现在只想查看列表,回复 cancel 即可。
-```
-
-## Clean
-
-```bash
-cd "$LOCAL_REPO"
-
-if [[ "$WS_NAME" == "--all" ]]; then
-  for WS in */; do
-    WS="${WS%/}"
-    [[ "$WS" == ".git" ]] && continue
-    [[ -f "$WS/manifest.json" ]] || continue
-    rm -rf -- "$WS"
-  done
-else
-  WS_DIR="$LOCAL_REPO/$WS_NAME"
-  [[ "$WS_DIR" == "$LOCAL_REPO/"* ]] || { echo "非法 workspace 路径"; exit 1; }
-  rm -rf -- "$WS_DIR"
-fi
-
-git add -A
-git -c user.email="workspace-sync@local" -c user.name="workspace-sync" \
-    commit -m "workspace: clean ${WS_NAME} from $(hostname)" || echo "nothing to commit"
-no_proxy="$GITLAB_HOST" git push origin "$GITLAB_BRANCH"
-```
-
----
-
-# 后端实现:MinIO
-
-## Setup 验证
-
-见首次配置流程第 3 步。
-
-## 准备 mc alias(每次执行前都确保 alias 存在)
-
-```bash
-MC_ALIAS="$(read config .minio.mc_alias)"
-mc alias set "$MC_ALIAS" "$MINIO_ENDPOINT" "$MINIO_AK" "$MINIO_SK" --api S3v4 &>/dev/null
-BUCKET_PATH="$MC_ALIAS/$MINIO_BUCKET/$MINIO_PREFIX"
-# 末尾补 /
-[[ "$BUCKET_PATH" != */ ]] && BUCKET_PATH="$BUCKET_PATH/"
-```
-
-## Push
-
-```bash
-# Step 6: 读取 staging 开始前的远端版本(用于后续乐观并发校验的基线)
-CURRENT_REMOTE_VERSION=$(mc cat "$BUCKET_PATH$WS_NAME/manifest.json" 2>/dev/null | \
-  python3 -c "import json,sys; print(json.load(sys.stdin).get('version', 0) or 0)" 2>/dev/null || echo 0)
-
-# ... (Steps 7–10: 校验项目状态 / 生成 summary.md + manifest.json / 导出 skill states) ...
-
-# Step 11: 上传前重新读取远端版本做乐观并发校验
-LATEST_REMOTE_VERSION=$(mc cat "$BUCKET_PATH$WS_NAME/manifest.json" 2>/dev/null | \
-  python3 -c "import json,sys; print(json.load(sys.stdin).get('version', 0) or 0)" 2>/dev/null || echo 0)
-
-if [[ "$LATEST_REMOTE_VERSION" != "$CURRENT_REMOTE_VERSION" ]]; then
-  echo "⚠ 并发冲突: 你本地基于版本 v${CURRENT_REMOTE_VERSION},当前远端已是 v${LATEST_REMOTE_VERSION}"
-  echo "  你计划提交的新版本原本是 v$((CURRENT_REMOTE_VERSION + 1))"
-  echo "  如果继续,将基于最新远端版本提交 v$((LATEST_REMOTE_VERSION + 1))"
-  # 询问用户是否继续,如果继续则重置版本基线
-  # 如果用户取消则 exit 0
-  CURRENT_REMOTE_VERSION=$LATEST_REMOTE_VERSION
-fi
-NEXT_VERSION=$((CURRENT_REMOTE_VERSION + 1))
-# 重写 manifest 中的 version / previous_version 字段后再进行文件覆盖
-
-# 先删除云端已有的同名工作空间(覆盖)
-mc rm --recursive --force "$BUCKET_PATH$WS_NAME/" 2>/dev/null
-
-# 上传 staging 目录
-mc cp --recursive "$STAGE_DIR/" "$BUCKET_PATH$WS_NAME/"
-```
-
-## Pull
-
-```bash
-# 检查云端工作空间是否存在
-if ! mc ls "$BUCKET_PATH$WS_NAME/" &>/dev/null; then
-  echo "工作空间 $WS_NAME 不存在"
-  exit 1
-fi
-
-# 下载到 staging
-mc cp --recursive "$BUCKET_PATH$WS_NAME/" "$STAGE_DIR/"
-```
-
-## List
-
-```bash
-for WS in $(mc ls "$BUCKET_PATH" 2>/dev/null | awk '{print $NF}' | sed 's|/$||'); do
-  [[ -n "$WS" ]] || continue
-  MANIFEST_JSON="$(mc cat "$BUCKET_PATH$WS/manifest.json" 2>/dev/null || true)"
-  VERSION="$(printf '%s' "$MANIFEST_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('version', '-'))" 2>/dev/null || echo '-')"
-  UPDATED_AT="$(printf '%s' "$MANIFEST_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('updated_at', '-'))" 2>/dev/null || echo '-')"
-  echo "$WS|$VERSION|$UPDATED_AT"
-done
-```
-
-## Clean
-
-```bash
-if [[ "$WS_NAME" == "--all" ]]; then
-  mc rm --recursive --force "$BUCKET_PATH"
-else
-  mc rm --recursive --force "$BUCKET_PATH$WS_NAME/"
-fi
-```
+状态值:
+- `exported` / `restored`: 成功
+- `skipped`: 当前环境不满足
+- `not_exported`: 该 workspace 未启用该 skill 同步
+- `deferred`: 产物存在但目标设备未安装对应 skill
 
 ---
 
@@ -1155,27 +227,34 @@ fi
 
 | 情况 | 处理 |
 |------|------|
-| config 不完整 | 进入首次配置流程 |
-| GitLab token 无效(401) | 配置时验证失败;命令时报错退出,提示重新配置 |
-| GitLab 仓库不存在(404) | 配置时验证失败;命令时报错退出,提示先去 GitLab 创建空仓库 |
-| MinIO bucket 不存在 | 验证失败,提示先去 MinIO 创建 bucket |
-| mc 未安装(minio 后端) | 报错退出,给出安装命令 |
+| config 不完整 | 进入首次配置流程(`references/setup.md`) |
+| GitLab token 无效(401) | 报错退出,提示重新配置 |
+| GitLab 仓库不存在(404) | 报错退出,提示先去 GitLab 创建空仓库 |
+| MinIO bucket 不存在 | 验证失败,提示先创建 bucket |
+| mc 未安装(minio 后端) | 报错,给出三平台安装命令 |
 | detect-projects 返回空 | 按纯讨论模式继续 |
-| push 时项目存在未提交改动 | 直接报错,要求用户先 commit/push |
-| push 时项目没有 upstream | 直接报错,要求用户先 `git push -u` |
-| push 时项目与 upstream 不同步 | 直接报错,要求用户先同步代码 |
-| push 时发现远端版本已变化 | 告警并询问用户是否基于最新版本继续提交 |
+| push 时项目有未提交改动 | 报错,要求先 commit/push |
+| push 时项目无 upstream | 报错,要求先 `git push -u` |
+| push 时与 upstream 不同步 | 报错,要求先同步代码 |
+| push 时远端版本已变化 | 告警并询问是否基于最新版本继续提交 |
 | 项目路径未映射(pull 时) | 交互询问用户,写入 local-paths.json |
-| 记录的 `head` 在目标设备不存在 | 跳过该项目并报错 |
-| pull 时本地有未提交改动 | 跳过该项目并报错,不要覆盖当前工作区 |
-| 某个 skill 未安装或版本不兼容 | 该 skill 状态记为 `skipped` 或 `deferred`,但不影响 workspace 上下文恢复 |
-| 某个 skill 没有 export/import 契约 | 直接视为 `not_exported`,不要猜测其内部目录结构 |
-| clean 时目标不存在 | 明确提示 nothing to clean,不要报致命错误 |
-| workspace 名称非法 | 立即报错,不要做任何删除/覆盖操作 |
+| 记录的 head 不存在 | 跳过该项目并告知用户 |
+| pull 时本地有未提交改动 | 跳过该项目,不覆盖当前工作区 |
+| skill 未安装或不兼容 | 记为 skipped/deferred,不影响上下文恢复 |
+| skill 无 contract | 记为 not_exported,不猜目录结构 |
+| clean 目标不存在 | 提示 nothing to clean,不报致命错误 |
+| workspace 名称非法 | 立即报错,不做任何操作 |
 
 ---
 
-# 暂未实现的功能
+# Backend 实现
 
-- GitHub / S3 后端支持
+- GitLab: `references/gitlab.md`
+- MinIO: `references/minio.md`
+
+---
+
+# 暂未实现
+
+- GitHub / S3 后端
 - workspace 版本历史浏览与回滚

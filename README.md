@@ -324,6 +324,24 @@ workspace-sync/
 
 ---
 
+## 推荐使用方式
+
+一个稳妥的日常用法是：
+
+1. 在当前设备完成提交并推送
+2. `push` 一个明确命名的 workspace
+3. 在新设备 `pull` 同名 workspace
+4. 继续工作
+5. 工作结束后按需要再次 `push`
+
+建议 workspace 名称和任务名保持一致，例如：
+
+- `feature-import`
+- `fix-login-timeout`
+- `release-2026-04`
+
+---
+
 ## Workspace 存储格式
 
 每个 workspace 最终会保存成一个目录：
