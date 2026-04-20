@@ -133,12 +133,29 @@ done
 
 ### Step 8: 生成 summary.md + manifest.json
 
-Claude 用 Read 工具读 session jsonl，然后用 Write 工具写入 `$STAGE_DIR/summary.md` 和 `$STAGE_DIR/manifest.json`。
+Claude 用 Read 工具读 session jsonl，再根据是否存在旧摘要决定生成策略，最后用 Write 工具写入 `$STAGE_DIR/summary.md` 和 `$STAGE_DIR/manifest.json`。
 
-**摘要生成原则：**
-- 整体目标：从对话开头几条用户消息提炼，不超过 2 句
+**首次 push（CURRENT_REMOTE_VERSION == 0）：**
+从 session jsonl 从头提炼，按 SKILL.md 中的 summary.md 格式生成完整摘要。
+
+**更新 push（CURRENT_REMOTE_VERSION > 0）：**
+先读取旧版摘要，再读 session jsonl，以旧摘要为基础做增量更新：
+
+```bash
+# 旧摘要位于 backend 的本地缓存，读取方式：
+# GitLab: $LOCAL_REPO/$WS_NAME/summary.md
+# MinIO:  $STAGE_DIR/summary.md（下载后已在 staging）
+```
+
+增量更新规则：
+- `整体目标` 和 `背景与约束`：**原则上保留**，只有本次对话明确修正了目标或背景时才更新；不因本次只讨论了子任务就缩减
+- 各项目段落：根据本次 session 更新"已完成""进行中""下一步"，新增本次涉及的文件
+- 本次 session **未涉及**的项目段落：直接保留旧内容，不删除
+
+**摘要质量要求：**
+- "下一步"必须具体：写明方法名/文件名，避免"继续开发"这类无意义描述
+- 宁可信息量多，不要为了简洁丢失关键背景
 - 按项目分段：每个检测到的项目一段
-- "下一步"必须具体：避免"继续开发"这类无意义描述
 
 **manifest.json 写法：**
 
