@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./workspace-sync-lib.sh
 source "$SCRIPT_DIR/workspace-sync-lib.sh"
 
+SELF_PATH="$(ws_to_unix_path "${BASH_SOURCE[0]}")"
+
 SKILL_DIR=""
 CONTRACT_PATH=""
 WORKSPACE_NAME=""
@@ -17,10 +19,10 @@ usage() {
   cat <<'EOF'
 Usage: ./import-skill-states.sh --skill-dir <dir> --workspace-name <name> --stage-dir <dir> --manifest <file> [options]
 
-Imports all matching skill state entries for a single skill from a workspace manifest.
+Imports matching skill state entries from a workspace manifest.
 
 Options:
-  --skill-dir <dir>        Required. Skill root directory.
+  --skill-dir <dir>        Optional. Skill root directory. Omit to scan all installed skills.
   --contract <path>        Optional. Override workspace-sync.contract.json path.
   --workspace-name <name>  Required. Workspace name.
   --stage-dir <dir>        Required. Workspace staging directory.
@@ -103,10 +105,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$SKILL_DIR" ]] || {
-  usage >&2
-  ws_die "--skill-dir is required"
-}
 [[ -n "$WORKSPACE_NAME" ]] || {
   usage >&2
   ws_die "--workspace-name is required"
@@ -120,6 +118,116 @@ done
   ws_die "--manifest is required"
 }
 
+STAGE_DIR="$(ws_to_unix_path "$(ws_expand_home "$STAGE_DIR")")"
+[[ -d "$STAGE_DIR" ]] || ws_die "Stage directory not found: $STAGE_DIR"
+
+MANIFEST_PATH="$(ws_to_unix_path "$(ws_expand_home "$MANIFEST_PATH")")"
+[[ -f "$MANIFEST_PATH" ]] || ws_die "Manifest not found: $MANIFEST_PATH"
+
+if [[ -z "$SKILL_DIR" ]]; then
+  TMP_DIR="$(mktemp -d)"
+  trap 'rm -rf "$TMP_DIR"' EXIT
+  RESULTS_FILE="$TMP_DIR/results.jsonl"
+  : > "$RESULTS_FILE"
+
+  SKILL_MAP_FILE="$TMP_DIR/skills.tsv"
+  ws_list_skill_contracts > "$SKILL_MAP_FILE"
+
+  while IFS= read -r skill_name; do
+    [[ -n "$skill_name" ]] || continue
+
+    skill_dir="$(awk -F '\t' -v name="$skill_name" '$1==name { print $2; exit }' "$SKILL_MAP_FILE")"
+    if [[ -n "$skill_dir" ]]; then
+      child_result="$TMP_DIR/${skill_name}.json"
+      child_error="$TMP_DIR/${skill_name}.err"
+      cmd_args=(
+        --skill-dir "$skill_dir"
+        --workspace-name "$WORKSPACE_NAME"
+        --stage-dir "$STAGE_DIR"
+        --manifest "$MANIFEST_PATH"
+      )
+
+      if [[ -n "$CONTRACT_PATH" ]]; then
+        cmd_args+=(--contract "$CONTRACT_PATH")
+      fi
+      for spec in "${PROJECT_SPECS[@]}"; do
+        cmd_args+=(--project "$spec")
+      done
+      for state_name in "${STATE_FILTERS[@]}"; do
+        cmd_args+=(--state-name "$state_name")
+      done
+
+      if bash "$SELF_PATH" "${cmd_args[@]}" >"$child_result" 2>"$child_error"; then
+        python3 - "$child_result" >> "$RESULTS_FILE" <<'PYEOF'
+import json, sys
+
+payload = json.load(open(sys.argv[1], encoding="utf-8"))
+for item in payload.get("results", []):
+    print(json.dumps(item, ensure_ascii=False))
+PYEOF
+      else
+        error_text="$(tr '\r\n' ' ' < "$child_error" | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')"
+        [[ -n "$error_text" ]] || error_text="skill_import_failed"
+        python3 - "$MANIFEST_PATH" "$skill_name" "$error_text" >> "$RESULTS_FILE" <<'PYEOF'
+import json, sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+skill_name = sys.argv[2]
+reason = sys.argv[3]
+for entry in manifest.get("skill_states", []):
+    if entry.get("skill") != skill_name:
+        continue
+    item = {
+        "skill": skill_name,
+        "state": entry.get("state", ""),
+        "scope": entry.get("scope", ""),
+        "project": entry.get("project", ""),
+        "status": "skipped",
+        "reason": reason,
+    }
+    print(json.dumps(item, ensure_ascii=False))
+PYEOF
+      fi
+      continue
+    fi
+
+    python3 - "$MANIFEST_PATH" "$skill_name" >> "$RESULTS_FILE" <<'PYEOF'
+import json, sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+skill_name = sys.argv[2]
+for entry in manifest.get("skill_states", []):
+    if entry.get("skill") != skill_name:
+        continue
+    item = {
+        "skill": skill_name,
+        "state": entry.get("state", ""),
+        "scope": entry.get("scope", ""),
+        "project": entry.get("project", ""),
+        "status": "deferred",
+        "reason": "skill_not_installed",
+    }
+    print(json.dumps(item, ensure_ascii=False))
+PYEOF
+  done < <(python3 - "$MANIFEST_PATH" <<'PYEOF'
+import json, sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+seen = set()
+for entry in manifest.get("skill_states", []):
+    skill = entry.get("skill") or ""
+    if skill and skill not in seen:
+        seen.add(skill)
+        print(skill)
+PYEOF
+  )
+
+  printf '{"results":'
+  ws_emit_json_lines_array "$RESULTS_FILE"
+  echo "}"
+  exit 0
+fi
+
 SKILL_DIR="$(ws_to_unix_path "$(ws_expand_home "$SKILL_DIR")")"
 [[ -d "$SKILL_DIR" ]] || ws_die "Skill directory not found: $SKILL_DIR"
 
@@ -129,12 +237,6 @@ else
   CONTRACT_PATH="$SKILL_DIR/workspace-sync.contract.json"
 fi
 [[ -f "$CONTRACT_PATH" ]] || ws_die "Contract not found: $CONTRACT_PATH"
-
-STAGE_DIR="$(ws_to_unix_path "$(ws_expand_home "$STAGE_DIR")")"
-[[ -d "$STAGE_DIR" ]] || ws_die "Stage directory not found: $STAGE_DIR"
-
-MANIFEST_PATH="$(ws_to_unix_path "$(ws_expand_home "$MANIFEST_PATH")")"
-[[ -f "$MANIFEST_PATH" ]] || ws_die "Manifest not found: $MANIFEST_PATH"
 
 CONTRACT_VERSION="$(ws_get_json_string "$CONTRACT_PATH" "contract_version")"
 [[ "$CONTRACT_VERSION" == "1" ]] || ws_die "Unsupported contract_version: ${CONTRACT_VERSION:-<empty>}"

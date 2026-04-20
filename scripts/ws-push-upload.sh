@@ -4,21 +4,18 @@
 # 退出码: 0=成功 1=失败 2=并发冲突(需用户确认后加 --force 重试)
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./ws-backend.sh
+source "$SCRIPT_DIR/ws-backend.sh"
+
 WS_NAME="${1:-}"
 FORCE="${2:-}"
 [[ -n "$WS_NAME" ]] || { echo '{"error":"ws_name is required"}'; exit 1; }
 
-SKILL_DIR="$HOME/.claude/skills/workspace-sync"
-CONFIG="$SKILL_DIR/config.json"
-[[ -f "$CONFIG" ]] || { echo '{"error":"config not found"}'; exit 1; }
-
 _py() { python3 -c "$1" 2>/dev/null || echo ""; }
+ws_backend_init
 
-BACKEND=$(_py "import json; d=json.load(open('$CONFIG')); print(d.get('backend') or '')")
-CACHE_DIR=$(_py "import json; d=json.load(open('$CONFIG')); print(d.get('cache_dir') or '~/.claude/workspace-cache')")
-CACHE_DIR="${CACHE_DIR/#\~/$HOME}"
-
-STAGE_ROOT="$CACHE_DIR/staging"
+STAGE_ROOT="$WS_CACHE_DIR/staging"
 STAGE_DIR="$STAGE_ROOT/$WS_NAME"
 PREPARE_RESULT="$STAGE_DIR/.prepare-result.json"
 
@@ -48,12 +45,41 @@ for proj in prep.get("projects", []):
 PYEOF
 
 # ── Step 10: 导出 skill states ───────────────────────────────────────────────
-PROJECTS_JSON=$(_py "import json; prep=json.load(open('$PREPARE_RESULT')); print(json.dumps(prep.get('projects', [])))")
 SKILL_EXPORT_STATUS="skipped"
-if bash "$SKILL_DIR/scripts/export-skill-states.sh" \
+SKILL_EXPORT_RESULT="$STAGE_DIR/.skill-export-result.json"
+declare -a PROJECT_ARGS=()
+while IFS= read -r spec; do
+  [[ -n "$spec" ]] || continue
+  PROJECT_ARGS+=(--project "$spec")
+done < <(python3 - "$PREPARE_RESULT" <<'PYEOF'
+import json, sys
+
+prep = json.load(open(sys.argv[1], encoding="utf-8"))
+for project in prep.get("projects", []):
+    name = project.get("name") or ""
+    path = project.get("path") or ""
+    if name and path:
+        print(f"{name}={path}")
+PYEOF
+)
+
+if bash "$WS_SKILL_DIR/scripts/export-skill-states.sh" \
      --workspace-name "$WS_NAME" \
      --stage-dir "$STAGE_DIR" \
-     --projects-json "$PROJECTS_JSON" 2>/dev/null; then
+     "${PROJECT_ARGS[@]}" >"$SKILL_EXPORT_RESULT" 2>/dev/null; then
+  python3 - "$STAGE_DIR/manifest.json" "$SKILL_EXPORT_RESULT" <<'PYEOF'
+import json, sys
+
+manifest_path = sys.argv[1]
+result_path = sys.argv[2]
+
+manifest = json.load(open(manifest_path, encoding="utf-8"))
+export_result = json.load(open(result_path, encoding="utf-8"))
+manifest["skill_states"] = export_result.get("results", [])
+
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    json.dump(manifest, handle, ensure_ascii=False, indent=2)
+PYEOF
   SKILL_EXPORT_STATUS="exported"
 fi
 
@@ -62,36 +88,30 @@ CURRENT_REMOTE_VERSION=$(_py "import json; prep=json.load(open('$PREPARE_RESULT'
 MANIFEST_VERSION=$(_py "import json; d=json.load(open('$STAGE_DIR/manifest.json')); print(d.get('previous_version', 0))")
 
 _read_latest_version() {
-  case "$BACKEND" in
+  local version=""
+  case "$WS_BACKEND" in
     local)
-      LP=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('local') or {}).get('path') or '')")
-      LP="${LP/#\~/$HOME}"
-      _py "import json; d=json.load(open('$LP/$WS_NAME/manifest.json')); print(d.get('version') or 0)" 2>/dev/null || echo "0"
+      ws_init_local
+      version="$(ws_get_json_string "$WS_LOCAL_PATH/$WS_NAME/manifest.json" "version")"
       ;;
     github)
-      REPO=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('repo') or '')")
-      LOCAL_REPO="$CACHE_DIR/github/$(echo "$REPO" | sed 's|/|_|g')"
-      (cd "$LOCAL_REPO" && git pull --ff-only &>/dev/null || true)
-      _py "import json; d=json.load(open('$LOCAL_REPO/$WS_NAME/manifest.json')); print(d.get('version') or 0)" 2>/dev/null || echo "0"
+      ws_ensure_github
+      version="$(ws_get_json_string "$WS_GITHUB_LOCAL_REPO/$WS_NAME/manifest.json" "version")"
       ;;
     gitlab)
-      PROJ=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('project_path') or '')")
-      HOST=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('host') or '')")
-      LOCAL_REPO="$CACHE_DIR/gitlab/$(echo "$PROJ" | sed 's|/|_|g')"
-      (cd "$LOCAL_REPO" && no_proxy="$HOST" git pull --ff-only &>/dev/null || true)
-      _py "import json; d=json.load(open('$LOCAL_REPO/$WS_NAME/manifest.json')); print(d.get('version') or 0)" 2>/dev/null || echo "0"
+      ws_ensure_gitlab
+      version="$(ws_get_json_string "$WS_GITLAB_LOCAL_REPO/$WS_NAME/manifest.json" "version")"
       ;;
     minio)
-      MC_ALIAS=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('minio') or {}).get('mc_alias') or 'workspace-sync')")
-      BUCKET=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('minio') or {}).get('bucket') or '')")
-      PREFIX=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('minio') or {}).get('prefix') or 'workspaces/')")
+      ws_init_minio
       TMP=$(mktemp)
-      mc cp "${MC_ALIAS}/${BUCKET}/${PREFIX}${WS_NAME}/manifest.json" "$TMP" &>/dev/null \
-        && (_py "import json; d=json.load(open('$TMP')); print(d.get('version') or 0)" || echo "0") \
-        || echo "0"
+      mc cp "${WS_MC_BASE}${WS_NAME}/manifest.json" "$TMP" &>/dev/null && \
+        version="$(ws_get_json_string "$TMP" "version")"
       rm -f "$TMP"
       ;;
   esac
+  [[ -n "$version" ]] || version="0"
+  printf '%s\n' "$version"
 }
 
 LATEST_REMOTE_VERSION=$(_read_latest_version)
@@ -119,65 +139,55 @@ with open(path, "w") as f:
 PYEOF
 
 # ── Step 12: 上传 ────────────────────────────────────────────────────────────
-case "$BACKEND" in
+case "$WS_BACKEND" in
 
   local)
-    LP=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('local') or {}).get('path') or '')")
-    LP="${LP/#\~/$HOME}"
-    WS_DIR="$LP/$WS_NAME"
-    [[ "$WS_DIR" == "$LP/"* ]] || { echo '{"error":"illegal workspace path"}'; exit 1; }
+    ws_init_local
+    WS_DIR="$WS_LOCAL_PATH/$WS_NAME"
+    [[ "$WS_DIR" == "$WS_LOCAL_PATH/"* ]] || { echo '{"error":"illegal workspace path"}'; exit 1; }
     rm -rf -- "$WS_DIR"
     mkdir -p "$WS_DIR"
     cp -r "$STAGE_DIR"/* "$WS_DIR/"
     ;;
 
   github)
-    TOKEN=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('token') or '')")
-    REPO=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('repo') or '')")
-    BRANCH=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('branch') or 'main')")
-    LOCAL_REPO="$CACHE_DIR/github/$(echo "$REPO" | sed 's|/|_|g')"
-    WS_DIR="$LOCAL_REPO/$WS_NAME"
-    [[ "$WS_DIR" == "$LOCAL_REPO/"* ]] || { echo '{"error":"illegal workspace path"}'; exit 1; }
+    ws_ensure_github
+    WS_DIR="$WS_GITHUB_LOCAL_REPO/$WS_NAME"
+    [[ "$WS_DIR" == "$WS_GITHUB_LOCAL_REPO/"* ]] || { echo '{"error":"illegal workspace path"}'; exit 1; }
     rm -rf -- "$WS_DIR"; mkdir -p "$WS_DIR"
     cp -r "$STAGE_DIR"/* "$WS_DIR/"
-    (cd "$LOCAL_REPO"
-     git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+    (cd "$WS_GITHUB_LOCAL_REPO"
+     git checkout "$WS_GITHUB_BRANCH" 2>/dev/null || git checkout -b "$WS_GITHUB_BRANCH"
      git add "$WS_NAME"
      git -c user.email="workspace-sync@local" -c user.name="workspace-sync" \
-         commit -m "workspace: update $WS_NAME v${NEXT_VERSION} from $(hostname)" \
-       || echo "nothing to commit"
-     git push origin "$BRANCH")
+          commit -m "workspace: update $WS_NAME v${NEXT_VERSION} from $(hostname)" \
+        || echo "nothing to commit"
+     git push origin "$WS_GITHUB_BRANCH")
     ;;
 
   gitlab)
-    HOST=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('host') or '')")
-    TOKEN=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('token') or '')")
-    PROJ=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('project_path') or '')")
-    BRANCH=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('branch') or 'main')")
-    LOCAL_REPO="$CACHE_DIR/gitlab/$(echo "$PROJ" | sed 's|/|_|g')"
-    WS_DIR="$LOCAL_REPO/$WS_NAME"
-    [[ "$WS_DIR" == "$LOCAL_REPO/"* ]] || { echo '{"error":"illegal workspace path"}'; exit 1; }
+    ws_ensure_gitlab
+    WS_DIR="$WS_GITLAB_LOCAL_REPO/$WS_NAME"
+    [[ "$WS_DIR" == "$WS_GITLAB_LOCAL_REPO/"* ]] || { echo '{"error":"illegal workspace path"}'; exit 1; }
     rm -rf -- "$WS_DIR"; mkdir -p "$WS_DIR"
     cp -r "$STAGE_DIR"/* "$WS_DIR/"
-    (cd "$LOCAL_REPO"
-     git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+    (cd "$WS_GITLAB_LOCAL_REPO"
+     git checkout "$WS_GITLAB_BRANCH" 2>/dev/null || git checkout -b "$WS_GITLAB_BRANCH"
      git add "$WS_NAME"
      git -c user.email="workspace-sync@local" -c user.name="workspace-sync" \
-         commit -m "workspace: update $WS_NAME v${NEXT_VERSION} from $(hostname)" \
-       || echo "nothing to commit"
-     no_proxy="$HOST" git push origin "$BRANCH")
+          commit -m "workspace: update $WS_NAME v${NEXT_VERSION} from $(hostname)" \
+        || echo "nothing to commit"
+     no_proxy="$WS_GITLAB_HOST" git push origin "$WS_GITLAB_BRANCH")
     ;;
 
   minio)
-    MC_ALIAS=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('minio') or {}).get('mc_alias') or 'workspace-sync')")
-    BUCKET=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('minio') or {}).get('bucket') or '')")
-    PREFIX=$(_py "import json; d=json.load(open('$CONFIG')); print((d.get('minio') or {}).get('prefix') or 'workspaces/')")
-    mc rm --recursive --force "${MC_ALIAS}/${BUCKET}/${PREFIX}${WS_NAME}/" &>/dev/null || true
-    mc cp --recursive "$STAGE_DIR/" "${MC_ALIAS}/${BUCKET}/${PREFIX}${WS_NAME}/"
+    ws_init_minio
+    mc rm --recursive --force "${WS_MC_BASE}${WS_NAME}/" &>/dev/null || true
+    mc cp --recursive "$STAGE_DIR/" "${WS_MC_BASE}${WS_NAME}/"
     ;;
 
   *)
-    echo "{\"error\": \"unknown backend: $BACKEND\"}"; exit 1 ;;
+    echo "{\"error\": \"unknown backend: $WS_BACKEND\"}"; exit 1 ;;
 esac
 
 # ── 输出成功结果 ─────────────────────────────────────────────────────────────

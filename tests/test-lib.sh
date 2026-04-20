@@ -16,12 +16,12 @@ assert_eq() {
   local actual="$3"
   if [[ "$actual" == "$expected" ]]; then
     echo "  ✓ $label"
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
     echo "  ✗ $label"
     echo "    expected: [$expected]"
     echo "    actual:   [$actual]"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
   fi
 }
 
@@ -66,7 +66,10 @@ CONFIG_FILE="$TMP/config.json"
 cat > "$CONFIG_FILE" <<'EOF'
 {
   "backend": "gitlab",
-  "cache_dir": "~/.claude/workspace-cache"
+  "cache_dir": "~/.claude/workspace-cache",
+  "gitlab": {
+    "host": "gitlab.example.com"
+  }
 }
 EOF
 
@@ -77,6 +80,10 @@ assert_eq "read backend field" \
 assert_eq "read cache_dir field" \
   "~/.claude/workspace-cache" \
   "$(ws_get_config_string "$CONFIG_FILE" "cache_dir")"
+
+assert_eq "read nested field via dotted path" \
+  "gitlab.example.com" \
+  "$(ws_get_json_string "$CONFIG_FILE" "gitlab.host")"
 
 assert_eq "missing key returns empty" \
   "" \

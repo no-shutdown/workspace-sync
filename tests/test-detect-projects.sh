@@ -14,12 +14,12 @@ assert_eq() {
   local actual="$3"
   if [[ "$actual" == "$expected" ]]; then
     echo "  ✓ $label"
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
     echo "  ✗ $label"
     echo "    expected: $expected"
     echo "    actual:   $actual"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
   fi
 }
 
@@ -29,12 +29,12 @@ assert_contains() {
   local haystack="$3"
   if echo "$haystack" | grep -qF "$needle"; then
     echo "  ✓ $label"
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
     echo "  ✗ $label"
     echo "    expected to contain: $needle"
     echo "    actual: $haystack"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
   fi
 }
 
@@ -101,10 +101,10 @@ result=$(bash "$DETECT" "$TMP/with-cwd.jsonl" 2>/dev/null)
 # cwd-only 路径进 ROOT_DIRS 但不进 ROOT_HITS，不影响结果格式
 if echo "$result" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
   echo "  ✓ cwd jsonl 输出合法 JSON"
-  ((PASS++))
+  PASS=$((PASS + 1))
 else
   echo "  ✗ cwd jsonl 输出不是合法 JSON: $result"
-  ((FAIL++))
+  FAIL=$((FAIL + 1))
 fi
 
 # --- Case 6: 输出始终是合法 JSON 数组 ---
@@ -114,10 +114,10 @@ for f in "$TMP/empty.jsonl" "$TMP/corrupt.jsonl"; do
   result=$(bash "$DETECT" "$f" 2>/dev/null)
   if echo "$result" | python3 -c "import json,sys; v=json.load(sys.stdin); assert isinstance(v,list)" 2>/dev/null; then
     echo "  ✓ $(basename $f) 输出是合法 JSON 数组"
-    ((PASS++))
+    PASS=$((PASS + 1))
   else
     echo "  ✗ $(basename $f) 输出不是合法 JSON 数组: $result"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
   fi
 done
 

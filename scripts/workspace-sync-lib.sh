@@ -184,7 +184,13 @@ path = Path(sys.argv[1]).expanduser()
 key = sys.argv[2]
 with path.open(encoding="utf-8") as handle:
     data = json.load(handle)
-value = data.get(key, "")
+value = data
+for part in key.split("."):
+    if isinstance(value, dict):
+        value = value.get(part, "")
+    else:
+        value = ""
+        break
 if value is None:
     print("")
 else:
@@ -198,7 +204,12 @@ const path = require("path");
 const file = process.argv[2].replace(/^~(?=$|[\\/])/, process.env.HOME || "");
 const key = process.argv[3];
 const data = JSON.parse(fs.readFileSync(path.resolve(file), "utf8"));
-const value = data[key];
+const value = key.split(".").reduce((acc, part) => {
+  if (acc && typeof acc === "object") {
+    return acc[part];
+  }
+  return undefined;
+}, data);
 console.log(value == null ? "" : String(value));
 ' "$file" "$key"
   fi
@@ -733,6 +744,24 @@ ws_emit_json_string_array() {
     done < "$file"
   fi
   printf ']'
+}
+
+ws_list_skill_contracts() {
+  local skills_root
+  local skill_dir
+  local skill_name
+  local contract_path
+
+  skills_root="$(ws_home_dir)/.claude/skills"
+  [[ -d "$skills_root" ]] || return 0
+
+  for skill_dir in "$skills_root"/*; do
+    [[ -d "$skill_dir" ]] || continue
+    skill_name="$(basename "$skill_dir")"
+    contract_path="$skill_dir/workspace-sync.contract.json"
+    [[ -f "$contract_path" ]] || continue
+    printf '%s\t%s\t%s\n' "$skill_name" "$skill_dir" "$contract_path"
+  done | sort
 }
 
 # 读取 contract 中指定 state 的 sync_paths 列表，每行一条
