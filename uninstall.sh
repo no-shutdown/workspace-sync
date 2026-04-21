@@ -1,11 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./scripts/workspace-sync-lib.sh
-source "$SCRIPT_DIR/scripts/workspace-sync-lib.sh"
+default_state_root() {
+  if [[ -n "${CODEX_HOME:-}" ]]; then
+    printf '%s\n' "$CODEX_HOME"
+    return
+  fi
 
-TARGET_DIR="$(ws_default_state_root "$SCRIPT_DIR")/skills/workspace-sync"
+  if [[ -n "${CLAUDE_HOME:-}" ]]; then
+    printf '%s\n' "$CLAUDE_HOME"
+    return
+  fi
+
+  if [[ -d "$HOME/.codex" ]]; then
+    printf '%s\n' "$HOME/.codex"
+    return
+  fi
+
+  if [[ -d "$HOME/.claude" ]]; then
+    printf '%s\n' "$HOME/.claude"
+    return
+  fi
+
+  printf '%s\n' "$HOME/.codex"
+}
+
+TARGET_DIR="$(default_state_root)/skills/workspace-sync"
 ASSUME_YES=0
 
 usage() {

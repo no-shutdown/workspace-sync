@@ -6,138 +6,91 @@
 /workspace-sync pull <workspace-name>
 ```
 
-## 作用
+## 目标
 
-从远端下载指定 workspace，自动恢复代码位置、skill 状态，并向用户呈现对话上下文。
+下载并恢复指定 workspace，同时把摘要重新呈现给用户，便于立即继续工作。
 
 ## 执行步骤
 
-### Step 1: 运行 fetch 脚本（含版本比较）
+### Step 1: 校验名称与配置
 
-校验 WS_NAME（参考 SKILL.md 中的 `validate_ws_name`），然后：
+- 按 `SKILL.md` 的 `validate_ws_name` 校验 `WS_NAME`
+- 读取当前生效 `config.json`
+- 配置缺失时，转入 `references/setup.md`
 
-```bash
-WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
-chmod +x "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh"
-bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME"
-```
+### Step 2: 先比较本地缓存与远端
 
-脚本内部执行以下版本比较逻辑（**无需 git pull 即可完成**）：
-- 读取本地缓存版本号
-- 通过 API（GitLab/GitHub）或直接读文件获取远端版本号
-- 根据比较结果决定行为
+优先读取本地缓存的 `manifest.json`。
+如果 backend 支持轻量远端查询，再读取远端 `manifest.json` 的 `version` / `updated_at`。
 
-**版本决策矩阵：**
+决策规则：
 
-| 本地 | 远端 | 行为 |
-|---|---|---|
-| 有 (vL) | 有 (vR ≥ vL) | 从远端拉取（正常路径）|
-| 有 (vL) | 有 (vR < vL) | **退出码 4**，返回冲突 JSON → 进入 Step 1b |
-| 有 | 无 | 直接从本地缓存恢复，`source: "local_only"` |
-| 无 | 有 | 从远端拉取 |
-| 无 | 无 | 退出码 1，报错 workspace 不存在 |
+- 本地无、远端有：下载远端
+- 本地有、远端无：从本地缓存恢复，并明确说明是 `local_only`
+- 本地和远端都有，远端更新：下载远端
+- 本地和远端都有，本地相同或更新：优先保守处理，先向用户说明版本关系再决定是否强制覆盖
+- 两边都没有：报错停止
 
-脚本完成拉取后还会对每个 project：查 `local-paths.json` + 扫 `scan_roots` 自动匹配本地路径：
-- 唯一命中 → `git checkout` 切到记录的 branch/HEAD，自动写回 `local-paths.json`
-- 本地有未提交改动 → `skipped_dirty`，不覆盖当前工作区
-- HEAD 不存在 → `skipped_head_missing`
-- 导入 skill states
+### Step 3: 恢复 workspace 基础文件
 
-脚本输出 JSON：
+恢复：
 
-```json
-{
-  "stage_dir": "...",
-  "summary_path": "/path/to/staging/ws_name/summary.md",
-  "source": "remote",
-  "manifest": {"name": "...", "version": 3, "source_device": "...", "updated_at": "..."},
-  "project_results": [
-    {"name": "shanks-manage", "status": "restored", "head": "abc123", "branch": "feature/import", "path": "..."},
-    {"name": "shanks-web",    "status": "skipped_dirty"}
-  ],
-  "unresolved": [],
-  "skill_states": "done"
-}
-```
+- `manifest.json`
+- `summary.md`
+- `conversation.jsonl`（若存在）
 
-**退出码 1（下载失败）** → 展示 error 字段给用户。
+### Step 4: 恢复项目代码位置
 
-**退出码 3（有未解析路径）** → `unresolved` 非空，进入 Step 2。
+对 `manifest.projects` 中的每个项目：
 
-**退出码 4（本地比远端新）** → 进入 Step 1b。
+1. 优先查 `local-paths.json`
+2. 再在 `scan_roots` 下扫描 git 仓库并按规范化 remote 精确匹配
+3. 唯一命中时自动采用，并写回 `local-paths.json`
+4. 多个候选时让用户选
+5. 没有候选时再问用户本地路径
 
-**退出码 0** → 直接进入 Step 3。
+恢复前先做校验：
 
-### Step 1b: 版本冲突确认（仅 exit 4 时执行）
+- 目标目录必须是 git 仓库
+- `remote.origin.url` 规范化后必须和记录匹配
+- 本地工作区如果有未提交改动，则跳过该项目，不强制覆盖
 
-脚本输出冲突 JSON：
+恢复动作：
 
-```json
-{"conflict": true, "local_version": 5, "remote_version": 3, "workspace": "feature-x"}
-```
+- 切到记录的分支
+- 尝试 checkout 到记录的 `HEAD`
+- 失败时标记为 `skipped_head_missing`
 
-向用户明确提示：
+### Step 5: 导入 portable skill states
 
-```
-⚠ 版本冲突：本地 feature-x 为 v5，远端为 v3（本地更新）。
-  用远端 v3 覆盖本地会丢失本地未推送的内容。
+读取各 skill 的 `workspace-sync.contract.json`：
 
-  是否仍要用远端版本覆盖本地？(y/n)
-```
+- `sync_paths`：直接恢复对应路径
+- `import_command`：仅在 contract 明确要求时，调用该 skill 自己的命令
 
-- 用户回复 `y` / `yes` → 重新执行：
-  ```bash
-  bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME" --force
-  ```
-  然后继续正常流程（Step 2 / Step 3）。
-- 用户回复 `n` / `no` / 取消 → 停止，告知用户可用 `/workspace-sync push` 先推送本地内容。
+结果单独汇报为：
 
-### Step 2: 处理未解析的项目路径（仅 exit 3 时执行）
+- `restored`
+- `skipped`
+- `missing`
+- `deferred`
 
-对每个 `unresolved` 项目：
-- 若有多个候选（`candidates` 非空）→ 展示候选列表，请用户选择
-- 若无候选 → 询问用户提供本地路径
+### Step 6: 重新呈现上下文
 
-用户提供路径后，校验该路径：
-- 是有效 git 仓库
-- `git config --get remote.origin.url` 规范化后与 `remote_key` 一致
+不要只说“恢复成功”，必须把 `summary.md` 中最重要的信息重新讲给用户：
 
-校验通过 → 用 `scripts/set-local-path.sh` 写入 `local-paths.json`，然后对该项目单独执行 `git checkout`（同 Step 1 脚本的逻辑）。
+- 整体目标
+- 背景与约束
+- 讨论脉络
+- 关键决策
+- 每个项目的当前停点
+- 下一步最具体动作
 
-### Step 3: 读取 summary.md，呈现上下文
+如果某些项目因为本地脏工作区、路径未解析或 `HEAD` 缺失而未恢复完整，必须明确提示：
 
-Claude 用 Read 工具读 `summary_path`，按以下顺序向用户呈现完整上下文。**呈现重点是让用户立刻知道"我们在做什么、讨论了什么、结论是什么"，而不只是代码停在哪。**
+- 摘要仅能作为参考
+- 当前代码现场和摘要可能不完全一致
 
-```
-✓ 工作空间已恢复: <name> (v<version>，来自 <source_device>，<updated_at>)
-  来源: 远端拉取 / 本地缓存（仅本地存在）
+### Step 7: 给出衔接动作
 
-  【整体目标】
-  <summary.md 整体目标的完整内容>
-
-  【背景与约束】
-  <summary.md 背景与约束的内容，若有>
-
-  【讨论脉络】
-  <summary.md 讨论脉络的内容——这是最关键的上下文，完整呈现，不要省略>
-
-  【关键决策】
-  <summary.md 关键决策的内容，若有>
-
-  【代码状态】
-  <各项目的进行中 / 下一步>
-    - shanks-manage: ✓ HEAD=abc123, branch=feature/import
-        进行中: <内容>  下一步: <内容>
-    - shanks-web:    ⚠ 跳过（本地有未提交改动）
-
-  skill 状态: <done/skipped 汇总>
-```
-
-若 `source` 为 `local_only`，额外提示：
-> 此 workspace 仅存在于本地缓存（远端无对应记录）。恢复后如需同步到远端，请执行 `/workspace-sync push`。
-
-若有 `skipped_dirty` 或 `skipped_head_missing` 的项目，明确提示用户：
-- 这些项目的代码现场**未完全恢复**
-- summary 中与它们相关的内容只能作为参考，不代表当前代码事实
-
-**呈现完毕后，主动根据 summary 中的"下一步"给出具体的衔接建议**（如"根据摘要，下一步是继续写 XXController 的 handleSubmit 方法，要开始吗？"），不需要用户再输入任何命令。
+根据 `summary.md` 的“下一步”，主动提出一个具体衔接动作，不要要求用户再手打一遍 `/workspace-sync` 命令。

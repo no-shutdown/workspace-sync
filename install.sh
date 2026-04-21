@@ -2,11 +2,33 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./scripts/workspace-sync-lib.sh
-source "$SCRIPT_DIR/scripts/workspace-sync-lib.sh"
-
-TARGET_DIR="$(ws_default_state_root "$SCRIPT_DIR")/skills/workspace-sync"
 INIT_CONFIG=1
+
+default_state_root() {
+  if [[ -n "${CODEX_HOME:-}" ]]; then
+    printf '%s\n' "$CODEX_HOME"
+    return
+  fi
+
+  if [[ -n "${CLAUDE_HOME:-}" ]]; then
+    printf '%s\n' "$CLAUDE_HOME"
+    return
+  fi
+
+  if [[ -d "$HOME/.codex" ]]; then
+    printf '%s\n' "$HOME/.codex"
+    return
+  fi
+
+  if [[ -d "$HOME/.claude" ]]; then
+    printf '%s\n' "$HOME/.claude"
+    return
+  fi
+
+  printf '%s\n' "$HOME/.codex"
+}
+
+TARGET_DIR="$(default_state_root)/skills/workspace-sync"
 
 usage() {
   cat <<'EOF'
@@ -45,6 +67,7 @@ copy_file() {
     echo "Source file not found: $src" >&2
     exit 1
   }
+
   mkdir -p "$(dirname "$dest")"
   cp "$src" "$dest"
 }
@@ -99,9 +122,8 @@ done
 TARGET_DIR="$(normalize_target_path "$TARGET_DIR")"
 assert_safe_target "$TARGET_DIR"
 
-mkdir -p "$TARGET_DIR/scripts"
-mkdir -p "$TARGET_DIR/docs"
 mkdir -p "$TARGET_DIR/action"
+mkdir -p "$TARGET_DIR/docs"
 mkdir -p "$TARGET_DIR/references"
 mkdir -p "$TARGET_DIR/templates"
 mkdir -p "$TARGET_DIR/examples/sdd/scripts"
@@ -110,56 +132,32 @@ copy_file "$SCRIPT_DIR/SKILL.md" "$TARGET_DIR/SKILL.md"
 copy_file "$SCRIPT_DIR/README.md" "$TARGET_DIR/README.md"
 copy_file "$SCRIPT_DIR/install.sh" "$TARGET_DIR/install.sh"
 copy_file "$SCRIPT_DIR/uninstall.sh" "$TARGET_DIR/uninstall.sh"
-copy_file "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/templates/config.json.example"
-copy_file "$SCRIPT_DIR/templates/workspace-sync.contract.example.json" "$TARGET_DIR/templates/workspace-sync.contract.example.json"
-copy_file "$SCRIPT_DIR/scripts/detect-projects.sh" "$TARGET_DIR/scripts/detect-projects.sh"
-copy_file "$SCRIPT_DIR/scripts/export-skill-states.sh" "$TARGET_DIR/scripts/export-skill-states.sh"
-copy_file "$SCRIPT_DIR/scripts/import-skill-states.sh" "$TARGET_DIR/scripts/import-skill-states.sh"
-copy_file "$SCRIPT_DIR/scripts/resolve-project-path.sh" "$TARGET_DIR/scripts/resolve-project-path.sh"
-copy_file "$SCRIPT_DIR/scripts/run-skill-state-export.sh" "$TARGET_DIR/scripts/run-skill-state-export.sh"
-copy_file "$SCRIPT_DIR/scripts/run-skill-state-import.sh" "$TARGET_DIR/scripts/run-skill-state-import.sh"
-copy_file "$SCRIPT_DIR/scripts/set-local-path.sh" "$TARGET_DIR/scripts/set-local-path.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-config.sh" "$TARGET_DIR/scripts/ws-config.sh"
-copy_file "$SCRIPT_DIR/scripts/workspace-sync-lib.sh" "$TARGET_DIR/scripts/workspace-sync-lib.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-backend.sh" "$TARGET_DIR/scripts/ws-backend.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-clean.sh" "$TARGET_DIR/scripts/ws-clean.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-list.sh" "$TARGET_DIR/scripts/ws-list.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-pull-fetch.sh" "$TARGET_DIR/scripts/ws-pull-fetch.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-push-prepare.sh" "$TARGET_DIR/scripts/ws-push-prepare.sh"
-copy_file "$SCRIPT_DIR/scripts/ws-push-upload.sh" "$TARGET_DIR/scripts/ws-push-upload.sh"
-copy_file "$SCRIPT_DIR/docs/skill-state-contract.md" "$TARGET_DIR/docs/skill-state-contract.md"
+
 copy_file "$SCRIPT_DIR/action/push.md" "$TARGET_DIR/action/push.md"
 copy_file "$SCRIPT_DIR/action/pull.md" "$TARGET_DIR/action/pull.md"
 copy_file "$SCRIPT_DIR/action/list.md" "$TARGET_DIR/action/list.md"
 copy_file "$SCRIPT_DIR/action/config.md" "$TARGET_DIR/action/config.md"
 copy_file "$SCRIPT_DIR/action/clean.md" "$TARGET_DIR/action/clean.md"
+
+copy_file "$SCRIPT_DIR/docs/skill-state-contract.md" "$TARGET_DIR/docs/skill-state-contract.md"
+
 copy_file "$SCRIPT_DIR/references/backend-interface.md" "$TARGET_DIR/references/backend-interface.md"
 copy_file "$SCRIPT_DIR/references/github.md" "$TARGET_DIR/references/github.md"
 copy_file "$SCRIPT_DIR/references/gitlab.md" "$TARGET_DIR/references/gitlab.md"
 copy_file "$SCRIPT_DIR/references/local.md" "$TARGET_DIR/references/local.md"
 copy_file "$SCRIPT_DIR/references/minio.md" "$TARGET_DIR/references/minio.md"
 copy_file "$SCRIPT_DIR/references/setup.md" "$TARGET_DIR/references/setup.md"
+
+copy_file "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/templates/config.json.example"
+copy_file "$SCRIPT_DIR/templates/workspace-sync.contract.example.json" "$TARGET_DIR/templates/workspace-sync.contract.example.json"
+
 copy_file "$SCRIPT_DIR/examples/sdd/workspace-sync.contract.json" "$TARGET_DIR/examples/sdd/workspace-sync.contract.json"
 copy_file "$SCRIPT_DIR/examples/sdd/scripts/export-workspace-state.sh" "$TARGET_DIR/examples/sdd/scripts/export-workspace-state.sh"
 copy_file "$SCRIPT_DIR/examples/sdd/scripts/import-workspace-state.sh" "$TARGET_DIR/examples/sdd/scripts/import-workspace-state.sh"
 
-chmod +x "$TARGET_DIR/scripts/detect-projects.sh"
-chmod +x "$TARGET_DIR/scripts/export-skill-states.sh"
-chmod +x "$TARGET_DIR/scripts/import-skill-states.sh"
-chmod +x "$TARGET_DIR/scripts/resolve-project-path.sh"
-chmod +x "$TARGET_DIR/scripts/run-skill-state-export.sh"
-chmod +x "$TARGET_DIR/scripts/run-skill-state-import.sh"
-chmod +x "$TARGET_DIR/scripts/set-local-path.sh"
-chmod +x "$TARGET_DIR/scripts/ws-config.sh"
-chmod +x "$TARGET_DIR/scripts/ws-backend.sh"
-chmod +x "$TARGET_DIR/scripts/ws-clean.sh"
-chmod +x "$TARGET_DIR/scripts/ws-list.sh"
-chmod +x "$TARGET_DIR/scripts/ws-pull-fetch.sh"
-chmod +x "$TARGET_DIR/scripts/ws-push-prepare.sh"
-chmod +x "$TARGET_DIR/scripts/ws-push-upload.sh"
+chmod +x "$TARGET_DIR/install.sh" "$TARGET_DIR/uninstall.sh"
 chmod +x "$TARGET_DIR/examples/sdd/scripts/export-workspace-state.sh"
 chmod +x "$TARGET_DIR/examples/sdd/scripts/import-workspace-state.sh"
-chmod +x "$TARGET_DIR/install.sh" "$TARGET_DIR/uninstall.sh"
 
 if [[ "$INIT_CONFIG" == "1" && ! -f "$TARGET_DIR/config.json" ]]; then
   copy_file "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/config.json"
@@ -171,27 +169,14 @@ Installed workspace-sync to:
 
 Files:
   $TARGET_DIR/SKILL.md
-  $TARGET_DIR/install.sh
-  $TARGET_DIR/uninstall.sh
-  $TARGET_DIR/scripts/detect-projects.sh
-  $TARGET_DIR/scripts/export-skill-states.sh
-  $TARGET_DIR/scripts/import-skill-states.sh
-  $TARGET_DIR/scripts/resolve-project-path.sh
-  $TARGET_DIR/scripts/run-skill-state-export.sh
-  $TARGET_DIR/scripts/run-skill-state-import.sh
-  $TARGET_DIR/scripts/set-local-path.sh
-  $TARGET_DIR/scripts/ws-config.sh
-  $TARGET_DIR/scripts/ws-backend.sh
-  $TARGET_DIR/scripts/ws-clean.sh
-  $TARGET_DIR/scripts/ws-list.sh
-  $TARGET_DIR/scripts/ws-pull-fetch.sh
-  $TARGET_DIR/scripts/ws-push-prepare.sh
-  $TARGET_DIR/scripts/ws-push-upload.sh
-  $TARGET_DIR/examples/sdd/workspace-sync.contract.json
-  $TARGET_DIR/templates/config.json.example
-  $TARGET_DIR/templates/workspace-sync.contract.example.json
+  $TARGET_DIR/README.md
+  $TARGET_DIR/action/
+  $TARGET_DIR/docs/
+  $TARGET_DIR/references/
+  $TARGET_DIR/templates/
+  $TARGET_DIR/examples/sdd/
 
 Next steps:
   1. Review $TARGET_DIR/config.json
-  2. Start Claude Code and run /workspace-sync push <name>
+  2. Start your CLI and run /workspace-sync push <name>
 EOF

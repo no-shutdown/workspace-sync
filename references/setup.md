@@ -2,14 +2,17 @@
 
 适用于两种场景：
 
-- 首次使用：`config.json` 中 `backend=null` 或对应 backend 的必填字段缺失
+- 首次使用：`config.json` 不存在，或 `backend` 为空，或当前 backend 必填字段缺失
 - 主动重配：用户执行 `/workspace-sync config`
 
-Claude 必须按以下顺序交互，**不要一次问所有问题**。
+执行原则：
 
----
+- 按顺序逐项提问
+- 不要一次性把所有问题都抛给用户
+- 先验证，再写入
+- 只更新当前 backend 对应字段和 `backend`
 
-## Step 1: 选择后端
+## Step 1: 选择 backend
 
 ```text
 请选择 workspace-sync 的存储后端：
@@ -18,122 +21,82 @@ Claude 必须按以下顺序交互，**不要一次问所有问题**。
 [2] GitHub  - 保存到一个已存在的 GitHub 仓库
 [3] GitLab  - 保存到一个已存在的 GitLab 仓库
 [4] MinIO   - 保存到一个已存在的 MinIO bucket
-
-请回复 1、2、3 或 4。
 ```
 
-等用户回复。
+## Step 2: 收集并验证参数
 
----
+### Local
 
-## Step 2(Local): 收集配置
+依次询问：
 
-依次问：
+1. 本地同步目录路径
 
-1. 本地同步目录路径，例如 `~/Dropbox/claude-workspaces`
+收到后立即校验：
 
-收到后立即验证目录存在，并写入：
+- 路径非空
+- 目录已经存在
+- 当前环境对该目录可读写
 
-```bash
-bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
-  local \
-  --path "$LOCAL_PATH"
-```
+### GitHub
 
-如果目录不存在：
+依次询问：
 
-```text
-❌ 目录不存在：<path>
-请先创建该目录，或改成一个已经存在并会被云盘同步的目录。
-```
-
----
-
-## Step 2(GitHub): 收集配置
-
-依次问：
-
-1. GitHub Personal Access Token
+1. Personal Access Token
 2. 仓库路径，格式 `owner/name`
-3. 分支名，默认 `main`，可直接回车跳过
+3. 分支名，默认 `main`
 
-收齐后立刻验证并写入：
+收到后立即校验：
 
-```bash
-bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
-  github \
-  --token "$GITHUB_TOKEN" \
-  --repo "$GITHUB_REPO" \
-  --branch "$GITHUB_BRANCH"
-```
+- token 非空
+- repo 格式合法
+- 可以通过 GitHub API 访问仓库
 
-验证失败时，明确报出 HTTP 状态码并停止，让用户修正后重试。
+可用 `gh api` 或 `curl` 进行只读验证；验证失败时直接把 HTTP 状态码或错误信息告诉用户。
 
----
+### GitLab
 
-## Step 2(GitLab): 收集配置
+依次询问：
 
-依次问：
-
-1. GitLab 主机，例如 `gitlab.com` 或 `your.gitlab.com`
+1. GitLab host
 2. Personal Access Token
-3. 仓库路径，格式 `namespace/name`
-4. 分支名，默认 `main`，可直接回车跳过
-5. 协议，默认 `https`，通常无需改动
+3. 项目路径，格式 `group/name`
+4. 分支名，默认 `main`
+5. 协议，默认 `https`
 
-收齐后立刻验证并写入：
+收到后立即校验：
 
-```bash
-bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
-  gitlab \
-  --host "$GITLAB_HOST" \
-  --token "$GITLAB_TOKEN" \
-  --project-path "$GITLAB_PROJECT_PATH" \
-  --branch "$GITLAB_BRANCH" \
-  --protocol "$GITLAB_PROTOCOL"
-```
+- host / token / project_path 非空
+- 可以通过 GitLab API 访问目标项目
 
-验证失败时，明确报出 HTTP 状态码并停止，让用户修正后重试。
+### MinIO
 
----
+依次询问：
 
-## Step 2(MinIO): 收集配置
+1. endpoint
+2. access key
+3. secret key
+4. bucket
+5. prefix，默认 `workspaces/`
+6. `mc_alias`，默认 `claude-workspace-sync`
 
-先确认本机已安装 `mc`，再依次问：
+收到后立即校验：
 
-1. MinIO endpoint，例如 `https://minio.example.com`
-2. Access Key
-3. Secret Key
-4. Bucket 名称
-5. Bucket 前缀，默认 `workspaces/`
-6. `mc` alias，默认 `claude-workspace-sync`
+- 本机已安装 `mc`
+- 能成功设置 alias
+- 目标 bucket 存在且当前凭据可访问
 
-收齐后立刻验证并写入：
+## Step 3: 写入 `config.json`
 
-```bash
-bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
-  minio \
-  --endpoint "$MINIO_ENDPOINT" \
-  --access-key "$MINIO_ACCESS_KEY" \
-  --secret-key "$MINIO_SECRET_KEY" \
-  --bucket "$MINIO_BUCKET" \
-  --prefix "$MINIO_PREFIX" \
-  --mc-alias "$MINIO_MC_ALIAS"
-```
+写入要求：
 
-如果 `mc` 未安装，直接报错并给出安装提示；如果 bucket 不存在或无权限，也直接报错停止。
+- 当前文件不存在时，从 `templates/config.json.example` 初始化结构
+- 只更新当前 backend 字段和 `backend`
+- 保留其他 backend 字段
+- 保留 `scan_roots`、`cache_dir`、`local_paths_file`
 
----
+建议直接用模型的文件编辑能力修改 JSON，而不是再引入额外仓库脚本。
 
-## Step 3: 保存成功后的收尾
+## Step 4: 收尾
 
-配置脚本成功后，会返回当前生效的 `config.json` 路径。
-
-向用户输出：
-
-```text
-✓ 配置已保存。
-```
-
-如果本流程是从其他命令中途进入的，则继续执行原命令。
-如果这是用户主动执行 `/workspace-sync config`，则到此结束。
+- 如果这是用户主动执行 `/workspace-sync config`，写完后确认成功并告知生效配置路径
+- 如果这是其他命令中途触发的配置流程，写完后继续原命令

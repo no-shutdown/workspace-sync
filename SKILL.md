@@ -5,31 +5,55 @@ description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 g
 
 # Workspace Sync
 
-## 概述
+## 核心原则
 
-把当前对话的工作状态(对话摘要 + 涉及的所有 git 项目的 branch/upstream/HEAD)打包上传到云端。另一台设备 pull 下来后,Claude 读摘要就能恢复上下文;代码侧只恢复到已提交并已推送的状态,不搬运本地未推/未提交改动。
+- 这是一个默认**无仓库脚本依赖**的 skill。优先直接使用 shell、git、文件读写、HTTP API 和当前模型已有工具完成任务。
+- 不要假设本仓库根目录下存在 `scripts/` 运行时脚本。即使仓库源码里曾经有过，也不应把它们当作执行入口。
+- 只有当其他 skill 自己的 `workspace-sync.contract.json` 明确声明了 `export_command` / `import_command` 时，才调用**那个 skill 自己**的脚本。
+- `list` 优先本地缓存，远端只做轻量补查。
+- `push` / `pull` 的目标是恢复上下文和已提交代码指针，不搬运本地未提交改动。
 
-自动适配三种场景(不需要区分模式):
-- **纯讨论**:projects 为空,只存摘要和对话
-- **单项目**:一次对话只改了一个 git 仓库
-- **多项目**:一次对话修改了前端+后台等多个仓库
+## 同步边界
 
-## 存储后端
+会同步：
 
-支持四种,选一即可(首次使用时配置):
+- `summary.md`
+- `conversation.jsonl`
+- `manifest.json`
+- 每个项目的 `remote / upstream / branch / head`
+- 其他 skill 显式声明为 `portable` 的状态
 
-| 后端 | 前置条件 |
-|------|---------|
-| **Local** | 本地目录,配合 Dropbox/OneDrive/iCloud 自动跨设备;零 API 配置 |
-| **GitHub** | 一个已存在的仓库 + 有 repo scope 的 Personal Access Token |
-| **GitLab** | 一个已存在的空仓库 + 有 read/write 权限的 Personal Access Token |
-| **MinIO** | 一个已存在的 bucket + 有读写权限的密钥 + 本机已装 `mc` 客户端 |
+不会同步：
 
-skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
+- 未提交改动
+- 已提交但未 push 的本地提交
+- `.gitignore` 忽略文件
+- 未声明或声明为 `nonportable` 的 skill 状态
+- 机器绑定缓存、锁、tmp、daemon 运行态、token
+
+## 路径约定
+
+以**当前实际安装并生效的 skill 目录**为准：
+
+- `WS_SKILL_DIR=<当前实际使用的 workspace-sync skill 目录>`
+- `CONFIG=$WS_SKILL_DIR/config.json`
+
+`STATE_ROOT` 按下面顺序推断：
+
+1. 如果 `WS_SKILL_DIR` 形如 `.../skills/workspace-sync`，则 `STATE_ROOT` 为它上两级目录
+2. 否则优先看环境变量，例如 `CODEX_HOME`、`CLAUDE_HOME`
+3. 否则在常见目录里找已存在的状态目录，例如 `~/.codex`、`~/.claude`
+
+默认路径：
+
+- `cache_dir` 为空时，使用 `$STATE_ROOT/workspace-cache`
+- `local_paths_file` 为空时，使用 `$STATE_ROOT/skills/workspace-sync/local-paths.json`
+
+不要把状态目录硬编码成某个固定 CLI。
 
 ## 配置文件
 
-`<当前 CLI 状态目录>/skills/workspace-sync/config.json`(参考 `templates/config.json.example`):
+`config.json` 示例见 `templates/config.json.example`。核心字段：
 
 ```json
 {
@@ -37,16 +61,17 @@ skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
   "local": {
     "path": "~/Dropbox/claude-workspaces"
   },
-  "gitlab": {
-    "host": "your.gitlab.com",
-    "token": "glpat-xxx",
-    "project_path": "namespace/repo-name",
-    "branch": "main"
-  },
   "github": {
     "token": "ghp_xxxxxxxxxxxx",
-    "repo": "your-username/claude-workspaces",
+    "repo": "owner/repo",
     "branch": "main"
+  },
+  "gitlab": {
+    "host": "gitlab.com",
+    "token": "glpat-xxx",
+    "project_path": "group/repo",
+    "branch": "main",
+    "protocol": "https"
   },
   "minio": {
     "endpoint": "https://minio.example.com",
@@ -58,21 +83,18 @@ skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
   },
   "cache_dir": null,
   "local_paths_file": null,
-  "scan_roots": ["D:/work", "D:/src"]
+  "scan_roots": [
+    "D:/work",
+    "D:/src"
+  ]
 }
 ```
 
-`backend` 为 `null` 或对应 backend 必填字段为空时,进入首次配置流程(见 `references/setup.md`)。
+`backend` 为空，或当前 backend 的必填字段缺失时，进入 `references/setup.md` 的配置流程。
 
-补充说明:
+## 工作空间结构
 
-- `cache_dir` 为 `null` 或空时,默认使用当前 CLI 状态目录下的 `workspace-cache`
-- `local_paths_file` 为 `null` 或空时,默认使用当前 CLI 状态目录下的 `skills/workspace-sync/local-paths.json`
-- 当前 CLI 状态目录示例: Claude 为 `~/.claude`, Codex 为 `~/.codex`
-
-## 工作空间目录结构
-
-```
+```text
 <workspace-name>/
 ├── manifest.json
 ├── summary.md
@@ -80,90 +102,82 @@ skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
 ├── projects/
 │   └── <project-name>/
 │       └── meta.json
-└── skill-states/              (含 skill 状态时才有)
+└── skill-states/
     └── <skill-name>/
-        └── <scope>-<state-name>/
+        └── <state-id>/
             ├── manifest.json
-            └── state.tgz
+            └── ...
 ```
 
-## 关键数据格式
-
-### manifest.json
+`manifest.json` 至少应包含：
 
 ```json
 {
-  "name": "存量名单导入重构",
+  "name": "feature-import",
   "version": 3,
   "previous_version": 2,
   "conversation_id": "71fc3842-...",
-  "source_device": "company-pc",
-  "source_cwd": "D:\\A-ukon-work\\shanks-manage",
+  "source_device": "office-pc",
+  "source_cwd": "D:/work/shanks-manage",
   "created_at": "2026-04-15T18:00:00+08:00",
   "updated_at": "2026-04-17T10:30:00+08:00",
-  "projects": [
-    {
-      "name": "shanks-manage",
-      "remote": "git@your.gitlab.com:namespace/your-project.git",
-      "upstream": "origin/feature/import",
-      "branch": "feature/import",
-      "head": "abc123"
-    }
-  ],
+  "projects": [],
   "skill_states": []
 }
 ```
 
-字段说明:
-- `created_at`: workspace 首次创建时间,不随版本更新变化
-- `updated_at`: 每次 push 时更新为当前时间,list 命令展示此字段
-- `version` / `previous_version`: 乐观并发控制,每次 push 递增
+## workspace 名称校验
 
-### summary.md 格式
+所有涉及 `WS_NAME` 的动作都先做这组校验：
 
-摘要的目标是：**让一个从未参与过这次对话的人，读完后能理解"我们在讨论什么问题、为什么这样做、讨论了哪些方案、得出了什么结论、停在哪里、下一步做什么"**。不只是进度记录，更是上下文的完整还原。
-
-```markdown
-# 工作空间:<name>
-
-## 整体目标
-<清晰描述在做什么、为什么做。首次 push 从对话提炼；后续 push 保留并更新，不要缩减>
-
-## 背景与约束
-<跨 session 必须保留的关键信息：架构决策、技术选型原因、已知的坑/限制、外部依赖。
-有则宁多勿少；没有可省略>
-
-## 讨论脉络
-<所有场景必填，不区分是否有代码任务。记录本次对话的核心讨论内容：
-- 讨论了哪些话题/问题
-- 探讨了哪些方案或思路（包括被否定的，及原因）
-- 达成了哪些共识或结论
-- 尚未解决或待确认的问题>
-
-## 关键决策
-<已明确拍板的决策，每条格式：
-- **[决策内容]** — 原因：[为什么这样选]>
-<没有明确决策时可省略此节>
-
-## 项目:<project-name>
-- **背景**:<该项目相关的重要上下文，跨 session 需要记住的>
-- **分支**:feature/import
-- **系统认知**:<本次对话中发现的、关于系统本身运作方式的知识（不是进度，是认识）。例如：某个机制的工作原理、某个设计的隐含约束、某个坑的根因。没有新发现可省略>
-- **已完成**:<具体列表>
-- **进行中**:<当前停在哪里、正在做什么——写成轨迹描述而非任务清单。例如"正在实现 XXController 的 handleSubmit，卡在事务边界上"，而不是"待做：A、B、C">
-- **下一步**:<必须具体，如"继续写 XXController 的 handleSubmit 方法">
-- **关键文件**:path:line
-- **注意事项**:<坑、约束、需要特别留意的地方>
+```bash
+validate_ws_name() {
+  local name="$1"
+  local bad_chars='[[:space:][:cntrl:]/\\<>:"|?*]'
+  [[ -n "$name" ]] || return 1
+  [[ "$name" != "." && "$name" != ".." ]] || return 1
+  [[ ! "$name" =~ $bad_chars ]] || return 1
+}
 ```
 
-### local-paths.json 格式
+非法名称直接报错并停止，不做任何写操作。
+
+## 项目路径映射
+
+不同设备上的同一个仓库，本地路径可能完全不同。恢复项目时不要依赖源设备路径，要依赖：
+
+- 规范化后的 git remote
+- `local-paths.json`
+- `scan_roots`
+
+remote key 规范化规则：
+
+1. 去掉协议头，例如 `https://`、`ssh://`
+2. 去掉用户信息，例如 `git@`
+3. host 转小写
+4. 去掉结尾 `.git`
+5. 把 `host:path` 统一成 `host/path`
+
+例如：
+
+- `git@gitlab.yc.com:ukon/shanks-manage.git`
+- `ssh://git@gitlab.yc.com/ukon/shanks-manage.git`
+- `https://gitlab.yc.com/ukon/shanks-manage.git`
+
+都归一到：
+
+```text
+gitlab.yc.com/ukon/shanks-manage
+```
+
+`local-paths.json` 结构：
 
 ```json
 {
   "version": 1,
   "projects": {
     "gitlab.yc.com/ukon/shanks-manage": {
-      "path": "D:\\A-yc-work\\ukon\\shanks-manage",
+      "path": "D:/work/ukon/shanks-manage",
       "repo_name": "shanks-manage",
       "last_verified_at": "2026-04-16T10:00:00+08:00"
     }
@@ -171,152 +185,95 @@ skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
 }
 ```
 
-remote key 用 `ws_normalize_remote`(来自 `scripts/workspace-sync-lib.sh`)规范化:去掉协议头/用户信息,host 转小写,去掉 `.git` 后缀,`host:path` 统一为 `host/path`。
+## push
 
----
+详细步骤见 `action/push.md`。
 
-# 通用执行入口
+额外约束：
 
-## Step 0: 加载配置 & 校验
+- 优先用当前对话上下文、当前 cwd、用户明确提到的仓库，推断本次 workspace 涉及的项目
+- 如果项目集合不确定，先把识别结果展示给用户确认，不要为了“自动检测”去调用复杂仓库脚本
+- 每个项目都要至少记录：`name`、`path`、`remote`、`branch`、`upstream`、`head`
+- 默认保守策略：
+  - 有未提交改动就停止
+  - 没有 upstream 就停止
+  - 本地与 upstream 不同步就停止
+- `summary.md` 不能只写“进度”，必须写出目标、讨论脉络、关键决策、当前停点和下一步
 
-```bash
-WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
-CONFIG="$WS_SKILL_DIR/config.json"
+## pull
 
-BACKEND=$(python3 -c "
-import json, sys
-try:
-    d = json.load(open('$CONFIG'))
-    print(d.get('backend') or '')
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
-```
+详细步骤见 `action/pull.md`。
 
-`BACKEND` 为空或对应 backend 必填字段缺失 → 读取 `references/setup.md` 执行首次配置,完成后继续当前命令。
+额外约束：
 
-补充原则:
+- 先比较本地缓存和远端版本，再决定是否下载
+- 本地缓存已经是最新时，可直接复用本地缓存
+- 恢复项目代码时，不强制覆盖本地脏工作区
+- 有 unresolved 项目路径时，优先用 `local-paths.json` 和 `scan_roots` 解决；仍不确定再问用户
+- 完成后必须把 `summary.md` 的关键信息重新呈现给用户，而不是只说“恢复成功”
 
-- 这里的关键是“读到当前实际生效的 config.json”，不是假设一定在某个固定的状态目录路径下。
-- 如果脚本与运行环境存在 Git Bash / WSL / MSYS / Windows 路径差异，优先修正解析方式，而不是重复执行同一条失败命令。
-- 低风险只读操作优先语义正确和快速返回，不要被某个脚本调用形式绑死。
+## list
 
-**validate_ws_name**(所有涉及 WS_NAME 的命令在操作前先调用):
+详细步骤见 `action/list.md`。
 
-```bash
-validate_ws_name() {
-  local name="$1"
-  local bad_chars='[[:space:][:cntrl:]/\<>:"|?*]'
-  [[ -n "$name" ]] || return 1
-  [[ "$name" != "." && "$name" != ".." ]] || return 1
-  [[ ! "$name" =~ $bad_chars ]] || return 1
-}
+额外约束：
 
-validate_ws_name "$WS_NAME" || {
-  echo "❌ 非法工作空间名称: $WS_NAME"
-  echo "   支持中文命名,不允许空白、路径分隔符、控制字符或 Windows 非法文件名字符"
-  exit 1
-}
-```
+- 默认只读本地缓存
+- 用户明确说“完整列表”“远端列表”“没看到想要的名字”时，再补查远端
+- 远端补查只允许列目录和读取 `manifest.json`，不要下载完整 workspace
+- 列出后立即引导用户选择一个继续恢复；只有用户明确表示“只是看看”时才停在列表
 
----
+## config
 
-# Push 流程
+详细步骤见 `action/config.md`。
 
-> 详细步骤见 `action/push.md`
+额外约束：
 
----
+- `/workspace-sync config` 不是首次安装专用入口，而是长期存在的重配置入口
+- 只更新当前选中的 backend 字段和 `backend` 本身，其他字段保留
+- 写入前先验证，不写半成品配置
 
-# Pull 流程
+## clean
 
-> 详细步骤见 `action/pull.md`
+详细步骤见 `action/clean.md`。
 
----
+额外约束：
 
-# List 流程
+- 单个 workspace 使用普通确认
+- `clean --all` 必须要求更强确认
+- 删除 workspace 时同时清理本地缓存和待导入 skill-state 缓存
 
-> 详细步骤见 `action/list.md`
+## Skill State 同步
 
-额外约束:
+通过 `docs/skill-state-contract.md` 的标准接口完成。
 
-- `list` 的本质是“本地缓存只读查询”。
-- 默认优先从本地缓存直接得到结果；如果用户说“没看到想要的”“想不起名字”“给我完整列表/远端列表”，立刻补查远端轻量列表。
-- `ws-list.sh` 是推荐实现，不是唯一合法实现。若脚本因环境兼容问题不可用，可直接遍历缓存目录和 `manifest.json` 做等价读取。
+导出顺序：
 
----
+1. 找到本次 workspace 涉及的 skill
+2. 读取对应 skill 目录下的 `workspace-sync.contract.json`
+3. 只处理 `portability=portable` 的 state
+4. 优先使用 `sync_paths`
+5. 只有 contract 明确给了 `export_command` / `import_command` 时，才调用该 skill 自己的命令
 
-# Config 流程
+状态值：
 
-> 详细步骤见 `action/config.md`
+- `exported` / `restored`
+- `skipped`
+- `not_exported`
+- `deferred`
 
-额外约束:
+`workspace-sync` 不猜其他 skill 的私有目录结构。
 
-- `/workspace-sync config` 不是首次安装专用，而是长期存在的重配置入口。
-- `config` 与首次配置必须复用 `references/setup.md` 中的同一套提问顺序、验证逻辑和写入方式。
-- 保存时只更新当前选择 backend 的字段和 `backend` 本身；其他字段保留。
+## Backend 实现
 
----
+接口规范见 `references/backend-interface.md`。
 
-# Clean 流程
-
-> 详细步骤见 `action/clean.md`
-
----
-
-# Skill State 同步
-
-通过 `docs/skill-state-contract.md` 中的标准接口实现。
-
-Push 时:遍历涉及的 skill,对 `portability=portable` 的 state 导出;
-优先使用 `scripts/export-skill-states.sh` 统一编排。
-
-Pull 时:读 manifest.skill_states,调用对应 skill 的 import;
-优先使用 `scripts/import-skill-states.sh` 统一编排。
-
-状态值:
-- `exported` / `restored`: 成功
-- `skipped`: 当前环境不满足
-- `not_exported`: 该 workspace 未启用该 skill 同步
-- `deferred`: 产物存在但目标设备未安装对应 skill
-
----
-
-# 边界处理
-
-| 情况 | 处理 |
-|------|------|
-| config 不完整 | 进入首次配置流程(`references/setup.md`) |
-| GitLab token 无效(401) | 报错退出,提示重新配置 |
-| GitLab 仓库不存在(404) | 报错退出,提示先去 GitLab 创建空仓库 |
-| MinIO bucket 不存在 | 验证失败,提示先创建 bucket |
-| mc 未安装(minio 后端) | 报错,给出三平台安装命令 |
-| detect-projects 返回空 | 按纯讨论模式继续 |
-| push 时项目有未提交改动 | 告警 + 询问,用户确认后继续,manifest 记录 `code_status=dirty` |
-| push 时项目无 upstream | 报错,要求先 `git push -u`(无法记录远端指针,不可跳过) |
-| push 时与 upstream 不同步 | 告警 + 询问,用户确认后继续,manifest 记录 `code_status=out_of_sync` |
-| push 时远端版本已变化 | 告警并询问是否基于最新版本继续提交 |
-| 项目路径未映射(pull 时) | 交互询问用户,写入 local-paths.json |
-| 记录的 head 不存在 | 跳过该项目并告知用户 |
-| pull 时本地有未提交改动 | 跳过该项目,不覆盖当前工作区 |
-| skill 未安装或不兼容 | 记为 skipped/deferred,不影响上下文恢复 |
-| skill 无 contract | 记为 not_exported,不猜目录结构 |
-| clean 目标不存在 | 提示 nothing to clean,不报致命错误 |
-| workspace 名称非法 | 立即报错,不做任何操作 |
-
----
-
-# Backend 实现
-
-接口规范见 `references/backend-interface.md`，各后端实现：
-
-- Local:  `references/local.md`
+- Local: `references/local.md`
 - GitHub: `references/github.md`
 - GitLab: `references/gitlab.md`
-- MinIO:  `references/minio.md`
+- MinIO: `references/minio.md`
 
----
+## 暂不实现
 
-# 暂未实现
-
-- S3 后端
-- workspace 版本历史浏览与回滚
+- S3 backend
+- workspace 历史版本浏览与回滚

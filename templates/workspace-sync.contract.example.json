@@ -8,8 +8,10 @@
       "description": "项目级工作现场",
       "scope": "project",
       "portability": "portable",
-      "export_command": "./scripts/export-workspace-state.sh",
-      "import_command": "./scripts/import-workspace-state.sh"
+      "sync_paths": [
+        ".example/specs",
+        ".example/current.json"
+      ]
     },
     {
       "name": "daemon-cache",

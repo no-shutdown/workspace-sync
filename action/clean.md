@@ -7,47 +7,53 @@
 /workspace-sync clean --all
 ```
 
-## 作用
+## 目标
 
-删除远端 workspace，并清理本地 staging 缓存。
+删除远端 workspace，并清理本地缓存与待导入状态缓存。
 
 ## 执行步骤
 
-### Step 1: 校验名称
+### Step 1: 校验目标
 
-按 SKILL.md 中的 `validate_ws_name` 校验 `$WS_NAME`（`--all` 时跳过）。
+- `clean <name>`：按 `SKILL.md` 的 `validate_ws_name` 校验
+- `clean --all`：跳过名称校验，但必须进入强确认
 
 ### Step 2: 二次确认
 
 单个 workspace：
-```
+
+```text
 将删除以下内容:
   - 远端 workspace: <name>
-  - 本地 staging 缓存: <name>
+  - 本地缓存: <name>
+  - 待导入 skill-state 缓存: <name>
 
 确认继续? [y/N]
 ```
 
-`--all`（必须使用更强确认）：
-```
-这会删除当前 backend 下的全部 workspace 及本地缓存。
+`--all`：
+
+```text
+这会删除当前 backend 下的全部 workspace 以及本地缓存。
 请明确回复: DELETE ALL
 ```
 
-### Step 3: 运行删除脚本
+### Step 3: 直接执行删除
 
-用户确认后：
+不要依赖仓库脚本，直接根据当前 backend 做删除：
 
-```bash
-WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
-chmod +x "$WS_SKILL_DIR/scripts/ws-clean.sh"
-bash "$WS_SKILL_DIR/scripts/ws-clean.sh" "$WS_NAME"
-```
+- Local: 删除目标目录
+- GitHub / GitLab: 删除远端对应 workspace 目录或对象
+- MinIO: 删除对象前缀
 
-脚本同时处理远端删除 + 本地缓存清理，成功后输出 `✓ 已清理 workspace: <name>`。
-
-目标不存在时脚本输出 `nothing to clean: <name>` 并正常退出。
+同时删除本地 `cache_dir` 中对应 workspace 缓存，以及待导入 skill-state 缓存。
 
 ### Step 4: 展示结果
 
-直接把脚本输出展示给用户。
+目标不存在时返回：
+
+```text
+nothing to clean: <name>
+```
+
+成功时明确列出删除结果即可。
