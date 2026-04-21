@@ -77,6 +77,92 @@ ws_ensure_gitlab() {
   (cd "$WS_GITLAB_LOCAL_REPO" && git checkout "$WS_GITLAB_BRANCH" 2>/dev/null || true)
 }
 
+# 计算 GitLab 本地缓存路径，不执行 clone/pull（用于 list / version-check）
+ws_compute_gitlab_path() {
+  WS_GITLAB_HOST="$(ws_get_json_string "$WS_CONFIG" "gitlab.host")"
+  WS_GITLAB_TOKEN="$(ws_get_json_string "$WS_CONFIG" "gitlab.token")"
+  WS_GITLAB_PROJECT="$(ws_get_json_string "$WS_CONFIG" "gitlab.project_path")"
+  WS_GITLAB_BRANCH="$(ws_get_json_string "$WS_CONFIG" "gitlab.branch")"
+  WS_GITLAB_PROTOCOL="$(ws_get_json_string "$WS_CONFIG" "gitlab.protocol")"
+  [[ -n "$WS_GITLAB_BRANCH" ]] || WS_GITLAB_BRANCH="main"
+  [[ -n "$WS_GITLAB_PROTOCOL" ]] || WS_GITLAB_PROTOCOL="https"
+  WS_GITLAB_LOCAL_REPO="$WS_CACHE_DIR/gitlab/$(echo "$WS_GITLAB_PROJECT" | sed 's|/|_|g')"
+}
+
+# 计算 GitHub 本地缓存路径，不执行 clone/pull（用于 list / version-check）
+ws_compute_github_path() {
+  WS_GITHUB_TOKEN="$(ws_get_json_string "$WS_CONFIG" "github.token")"
+  WS_GITHUB_REPO="$(ws_get_json_string "$WS_CONFIG" "github.repo")"
+  WS_GITHUB_BRANCH="$(ws_get_json_string "$WS_CONFIG" "github.branch")"
+  [[ -n "$WS_GITHUB_BRANCH" ]] || WS_GITHUB_BRANCH="main"
+  WS_GITHUB_LOCAL_REPO="$WS_CACHE_DIR/github/$(echo "$WS_GITHUB_REPO" | sed 's|/|_|g')"
+}
+
+# 通过 GitLab API 获取单个 workspace 的 manifest.json 内容（轻量，无 git pull）
+# 调用前需已执行 ws_compute_gitlab_path
+ws_gitlab_fetch_manifest() {
+  local ws_name="$1"
+  local encoded_project encoded_file
+  encoded_project="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$WS_GITLAB_PROJECT")"
+  encoded_file="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]+'/manifest.json', safe=''))" "$ws_name")"
+  no_proxy="$WS_GITLAB_HOST" curl -sf \
+    -H "PRIVATE-TOKEN: $WS_GITLAB_TOKEN" \
+    "${WS_GITLAB_PROTOCOL}://${WS_GITLAB_HOST}/api/v4/projects/${encoded_project}/repository/files/${encoded_file}/raw?ref=${WS_GITLAB_BRANCH}" \
+    2>/dev/null || true
+}
+
+# 通过 GitLab API 列出所有 workspace 目录名（每行一个，无 git pull）
+# 调用前需已执行 ws_compute_gitlab_path
+ws_gitlab_list_remote() {
+  local encoded_project
+  encoded_project="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$WS_GITLAB_PROJECT")"
+  no_proxy="$WS_GITLAB_HOST" curl -sf \
+    -H "PRIVATE-TOKEN: $WS_GITLAB_TOKEN" \
+    "${WS_GITLAB_PROTOCOL}://${WS_GITLAB_HOST}/api/v4/projects/${encoded_project}/repository/tree?ref=${WS_GITLAB_BRANCH}&per_page=100" \
+    2>/dev/null \
+  | python3 -c "
+import json, sys
+try:
+    items = json.load(sys.stdin)
+    for item in items:
+        if isinstance(item, dict) and item.get('type') == 'tree' and not item.get('name','').startswith('.'):
+            print(item['name'])
+except Exception:
+    pass
+" || true
+}
+
+# 通过 GitHub API 获取单个 workspace 的 manifest.json 内容（接受 raw 格式）
+# 调用前需已执行 ws_compute_github_path
+ws_github_fetch_manifest() {
+  local ws_name="$1"
+  curl -sf \
+    -H "Authorization: Bearer $WS_GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github.raw" \
+    "https://api.github.com/repos/${WS_GITHUB_REPO}/contents/${ws_name}/manifest.json?ref=${WS_GITHUB_BRANCH}" \
+    2>/dev/null || true
+}
+
+# 通过 GitHub API 列出所有 workspace 目录名（每行一个）
+# 调用前需已执行 ws_compute_github_path
+ws_github_list_remote() {
+  curl -sf \
+    -H "Authorization: Bearer $WS_GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/${WS_GITHUB_REPO}/contents/?ref=${WS_GITHUB_BRANCH}" \
+    2>/dev/null \
+  | python3 -c "
+import json, sys
+try:
+    items = json.load(sys.stdin)
+    for item in items:
+        if isinstance(item, dict) and item.get('type') == 'dir' and not item.get('name','').startswith('.'):
+            print(item['name'])
+except Exception:
+    pass
+" || true
+}
+
 # 初始化 MinIO 后端，设置 WS_MC_* 变量，检查 mc 命令存在
 ws_init_minio() {
   WS_MC_ALIAS="$(ws_get_json_string "$WS_CONFIG" "minio.mc_alias")"

@@ -5,7 +5,20 @@
       "Bash(bash install.sh)",
       "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/tests/test-lib.sh\" \"D:/A-my/claude-code-workspace-sync/tests/test-detect-projects.sh\")",
       "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/scripts/ws-list.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-clean.sh\")",
-      "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/scripts/ws-push-prepare.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-push-upload.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-pull-fetch.sh\")"
+      "Bash(chmod +x \"D:/A-my/claude-code-workspace-sync/scripts/ws-push-prepare.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-push-upload.sh\" \"D:/A-my/claude-code-workspace-sync/scripts/ws-pull-fetch.sh\")",
+      "Bash(bash *)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\);console.log\\('version:',p.version\\)\")",
+      "Bash(del /f \"C:\\\\Users\\\\Administrator\\\\.claude\\\\plugins\\\\claude-hud\\\\.usage-cache.json\")",
+      "Bash(git -C \"/c/Users/Administrator/.claude/skills/workspace-sync\" remote -v)",
+      "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/scripts/ws-list.sh\" \"/d/A-my/claude-code-workspace-sync/scripts/ws-list.sh\")",
+      "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/scripts/ws-pull-fetch.sh\" \"/d/A-my/claude-code-workspace-sync/scripts/ws-pull-fetch.sh\")",
+      "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/scripts/ws-backend.sh\" \"/d/A-my/claude-code-workspace-sync/scripts/ws-backend.sh\")",
+      "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/action/list.md\" \"/d/A-my/claude-code-workspace-sync/action/list.md\")",
+      "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/action/pull.md\" \"/d/A-my/claude-code-workspace-sync/action/pull.md\")",
+      "Bash(git *)"
     ]
   }
 }

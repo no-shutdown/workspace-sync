@@ -12,7 +12,7 @@
 
 ## 执行步骤
 
-### Step 1: 运行 fetch 脚本
+### Step 1: 运行 fetch 脚本（含版本比较）
 
 校验 WS_NAME（参考 SKILL.md 中的 `validate_ws_name`），然后：
 
@@ -22,9 +22,22 @@ chmod +x "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh"
 bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME"
 ```
 
-脚本完成以下工作：
-- 从 backend 下载 workspace 到 staging 目录
-- 对每个 project：查 `local-paths.json` + 扫 `scan_roots` 自动匹配本地路径
+脚本内部执行以下版本比较逻辑（**无需 git pull 即可完成**）：
+- 读取本地缓存版本号
+- 通过 API（GitLab/GitHub）或直接读文件获取远端版本号
+- 根据比较结果决定行为
+
+**版本决策矩阵：**
+
+| 本地 | 远端 | 行为 |
+|---|---|---|
+| 有 (vL) | 有 (vR ≥ vL) | 从远端拉取（正常路径）|
+| 有 (vL) | 有 (vR < vL) | **退出码 4**，返回冲突 JSON → 进入 Step 1b |
+| 有 | 无 | 直接从本地缓存恢复，`source: "local_only"` |
+| 无 | 有 | 从远端拉取 |
+| 无 | 无 | 退出码 1，报错 workspace 不存在 |
+
+脚本完成拉取后还会对每个 project：查 `local-paths.json` + 扫 `scan_roots` 自动匹配本地路径：
 - 唯一命中 → `git checkout` 切到记录的 branch/HEAD，自动写回 `local-paths.json`
 - 本地有未提交改动 → `skipped_dirty`，不覆盖当前工作区
 - HEAD 不存在 → `skipped_head_missing`
@@ -36,6 +49,7 @@ bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME"
 {
   "stage_dir": "...",
   "summary_path": "/path/to/staging/ws_name/summary.md",
+  "source": "remote",
   "manifest": {"name": "...", "version": 3, "source_device": "...", "updated_at": "..."},
   "project_results": [
     {"name": "shanks-manage", "status": "restored", "head": "abc123", "branch": "feature/import", "path": "..."},
@@ -50,7 +64,33 @@ bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME"
 
 **退出码 3（有未解析路径）** → `unresolved` 非空，进入 Step 2。
 
+**退出码 4（本地比远端新）** → 进入 Step 1b。
+
 **退出码 0** → 直接进入 Step 3。
+
+### Step 1b: 版本冲突确认（仅 exit 4 时执行）
+
+脚本输出冲突 JSON：
+
+```json
+{"conflict": true, "local_version": 5, "remote_version": 3, "workspace": "feature-x"}
+```
+
+向用户明确提示：
+
+```
+⚠ 版本冲突：本地 feature-x 为 v5，远端为 v3（本地更新）。
+  用远端 v3 覆盖本地会丢失本地未推送的内容。
+
+  是否仍要用远端版本覆盖本地？(y/n)
+```
+
+- 用户回复 `y` / `yes` → 重新执行：
+  ```bash
+  bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME" --force
+  ```
+  然后继续正常流程（Step 2 / Step 3）。
+- 用户回复 `n` / `no` / 取消 → 停止，告知用户可用 `/workspace-sync push` 先推送本地内容。
 
 ### Step 2: 处理未解析的项目路径（仅 exit 3 时执行）
 
@@ -70,6 +110,7 @@ Claude 用 Read 工具读 `summary_path`，向用户呈现完整上下文：
 
 ```
 ✓ 工作空间已恢复: <name> (v<version>，来自 <source_device>)
+  来源: 远端拉取 / 本地缓存（仅本地存在）
 
   上下文摘要：
   <summary.md 中整体目标 / 背景与约束 / 各项目状态的要点>
@@ -80,6 +121,9 @@ Claude 用 Read 工具读 `summary_path`，向用户呈现完整上下文：
 
   skill 状态: <done/skipped 汇总>
 ```
+
+若 `source` 为 `local_only`，额外提示：
+> 此 workspace 仅存在于本地缓存（远端无对应记录）。恢复后如需同步到远端，请执行 `/workspace-sync push`。
 
 若有 `skipped_dirty` 或 `skipped_head_missing` 的项目，明确提示用户：
 - 这些项目的代码现场**未完全恢复**
