@@ -16,7 +16,7 @@ ws_backend_init
 # 用 Python 遍历本地缓存目录，规避 Windows bash 非 ASCII 路径问题
 list_local_dir() {
   local dir="$1"
-  python3 - "$dir" <<'PYEOF'
+  PYTHONIOENCODING=utf-8 python3 - "$dir" <<'PYEOF'
 import json, os, sys
 
 dir_path = sys.argv[1]

@@ -14,11 +14,23 @@
 
 ### Step 1: 读取本地缓存（无网络）
 
+**严格规则：整个 list 流程只允许执行 ws-list.sh 一次。** 无论终端显示是否乱码，都不得重跑脚本。
+
+使用以下固定的单条 Bash 命令完成"运行 + 解码 + 解析"，**不拆成多条**：
+
 ```bash
-WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
-chmod +x "$WS_SKILL_DIR/scripts/ws-list.sh"
-bash "$WS_SKILL_DIR/scripts/ws-list.sh"
+bash "/c/Users/Administrator/.claude/skills/workspace-sync/scripts/ws-list.sh" | python3 -c "
+import sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+lines = sys.stdin.buffer.read().decode('utf-8').splitlines()
+for line in lines:
+    print(line)
+"
 ```
+
+- 脚本输出已是 UTF-8 字节（`PYTHONIOENCODING=utf-8` 保证）
+- Bash tool 终端可能显示乱码，但字节是正确的，直接解析即可
+- **禁止**因乱码重跑脚本、改用 Python subprocess、写临时文件再读
 
 脚本从本地缓存目录读取，**不做 git pull / 网络请求**，输出 `name|version|updated_at` 格式，每行一条。
 
