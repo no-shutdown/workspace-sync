@@ -11,15 +11,15 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/workspace-sync-lib.sh"
 
 ws_backend_init() {
-  WS_SKILL_DIR="$(ws_home_dir)/.claude/skills/workspace-sync"
-  WS_CONFIG="$WS_SKILL_DIR/config.json"
+  WS_SKILL_DIR="$(ws_workspace_sync_dir "$SCRIPT_DIR")"
+  WS_CONFIG="$(ws_workspace_sync_config_path "$SCRIPT_DIR")"
   [[ -f "$WS_CONFIG" ]] || { echo '{"error":"config not found"}'; exit 1; }
 
   WS_BACKEND="$(ws_get_json_string "$WS_CONFIG" "backend")"
   [[ -n "$WS_BACKEND" ]] || { echo '{"error":"backend not configured, run /workspace-sync connect first"}'; exit 1; }
 
   WS_CACHE_DIR="$(ws_get_json_string "$WS_CONFIG" "cache_dir")"
-  [[ -n "$WS_CACHE_DIR" ]] || WS_CACHE_DIR="~/.claude/workspace-cache"
+  [[ -n "$WS_CACHE_DIR" ]] || WS_CACHE_DIR="$(ws_default_workspace_cache_dir "$WS_CONFIG")"
   WS_CACHE_DIR="$(ws_expand_home "$WS_CACHE_DIR")"
   mkdir -p "$WS_CACHE_DIR"
 }

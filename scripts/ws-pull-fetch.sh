@@ -16,7 +16,7 @@ FORCE_MODE=0
 ws_backend_init
 
 LOCAL_PATHS_FILE="$(ws_get_json_string "$WS_CONFIG" "local_paths_file")"
-[[ -n "$LOCAL_PATHS_FILE" ]] || LOCAL_PATHS_FILE="~/.claude/skills/workspace-sync/local-paths.json"
+[[ -n "$LOCAL_PATHS_FILE" ]] || LOCAL_PATHS_FILE="$(ws_default_workspace_sync_local_paths "$WS_CONFIG")"
 LOCAL_PATHS_FILE="$(ws_expand_home "$LOCAL_PATHS_FILE")"
 
 STAGE_ROOT="$WS_CACHE_DIR/staging"

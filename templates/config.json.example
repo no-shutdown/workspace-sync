@@ -22,8 +22,8 @@
     "prefix": "workspaces/",
     "mc_alias": "claude-workspace-sync"
   },
-  "cache_dir": "~/.claude/workspace-cache",
-  "local_paths_file": "~/.claude/skills/workspace-sync/local-paths.json",
+  "cache_dir": null,
+  "local_paths_file": null,
   "scan_roots": [
     "D:/work",
     "D:/src"

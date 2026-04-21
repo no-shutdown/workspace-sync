@@ -39,7 +39,7 @@
 用户确认后：
 
 ```bash
-WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
+WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
 chmod +x "$WS_SKILL_DIR/scripts/ws-clean.sh"
 bash "$WS_SKILL_DIR/scripts/ws-clean.sh" "$WS_NAME"
 ```

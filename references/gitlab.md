@@ -7,7 +7,7 @@ GITLAB_HOST=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.ge
 GITLAB_TOKEN=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('token') or '')" 2>/dev/null)
 GITLAB_PROJECT_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('project_path') or '')" 2>/dev/null)
 GITLAB_BRANCH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.get('gitlab') or {}).get('branch') or 'main')" 2>/dev/null)
-CACHE_DIR="${CACHE_DIR:-$HOME/.claude/workspace-cache}"
+CACHE_DIR="${CACHE_DIR:-<当前 CLI 状态目录>/workspace-cache}"
 ```
 
 ## 准备本地 clone(push/pull/list/clean 均需要)

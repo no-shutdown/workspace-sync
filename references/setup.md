@@ -94,7 +94,7 @@ echo "✓ Bucket 验证通过"
 
 ## Step 4: 写入 config.json
 
-用 Write 工具更新 `~/.claude/skills/workspace-sync/config.json`,只写入相关字段,保留其他字段不变。
+用 Write 工具更新 `<当前 CLI 状态目录>/skills/workspace-sync/config.json`,只写入相关字段,保留其他字段不变。
 
 写入完成后输出:
 

@@ -5,11 +5,15 @@
 # 退出码: 0=成功 1=致命错误
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./workspace-sync-lib.sh
+source "$SCRIPT_DIR/workspace-sync-lib.sh"
+
 WS_NAME="${1:-}"
 [[ -n "$WS_NAME" ]] || { echo '{"error":"ws_name is required"}'; exit 1; }
 
-SKILL_DIR="$HOME/.claude/skills/workspace-sync"
-CONFIG="$SKILL_DIR/config.json"
+SKILL_DIR="$(ws_workspace_sync_dir "$SCRIPT_DIR")"
+CONFIG="$(ws_workspace_sync_config_path "$SCRIPT_DIR")"
 [[ -f "$CONFIG" ]] || { echo '{"error":"config not found"}'; exit 1; }
 
 _py() { python3 -c "$1" 2>/dev/null || echo ""; }
@@ -17,17 +21,19 @@ _py() { python3 -c "$1" 2>/dev/null || echo ""; }
 BACKEND=$(_py "import json; d=json.load(open('$CONFIG')); print(d.get('backend') or '')")
 [[ -n "$BACKEND" ]] || { echo '{"error":"backend not configured"}'; exit 1; }
 
-CACHE_DIR=$(_py "import json; d=json.load(open('$CONFIG')); print(d.get('cache_dir') or '~/.claude/workspace-cache')")
-CACHE_DIR="${CACHE_DIR/#\~/$HOME}"
+CACHE_DIR=$(_py "import json; d=json.load(open('$CONFIG')); print(d.get('cache_dir') or '')")
+[[ -n "$CACHE_DIR" ]] || CACHE_DIR="$(ws_default_workspace_cache_dir "$CONFIG")"
+CACHE_DIR="$(ws_expand_home "$CACHE_DIR")"
+PROJECTS_DIR="$(ws_projects_dir)"
 
 # ── Step 2: 定位 session JSONL ──────────────────────────────────────────────
 WIN_PWD=$(cygpath -w "$PWD" 2>/dev/null || echo "$PWD")
 ENCODED_CWD=$(echo "$WIN_PWD" | sed 's|[:\\/]|-|g')
-SESSION_JSONL=$(ls -t "$HOME/.claude/projects/$ENCODED_CWD/"*.jsonl 2>/dev/null | head -1 || echo "")
+SESSION_JSONL=$(ls -t "$PROJECTS_DIR/$ENCODED_CWD/"*.jsonl 2>/dev/null | head -1 || echo "")
 
 if [[ -z "$SESSION_JSONL" ]]; then
   SESSION_JSONL=$(
-    find "$HOME/.claude/projects" -name "*.jsonl" 2>/dev/null \
+    find "$PROJECTS_DIR" -name "*.jsonl" 2>/dev/null \
     | xargs ls -t 2>/dev/null \
     | while read -r f; do
         if grep -qF "\"cwd\":\"$PWD\"" "$f" 2>/dev/null || \

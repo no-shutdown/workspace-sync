@@ -17,7 +17,7 @@
 校验 WS_NAME（参考 SKILL.md 中的 `validate_ws_name`），然后：
 
 ```bash
-WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
+WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
 chmod +x "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh"
 bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME"
 ```

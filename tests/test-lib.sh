@@ -28,6 +28,22 @@ assert_eq() {
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+ORIG_HOME="${HOME:-}"
+ORIG_USERPROFILE="${USERPROFILE:-}"
+ORIG_WS_HOME_OVERRIDE="${WS_HOME_OVERRIDE:-}"
+ORIG_WS_SKILL_DIR_OVERRIDE="${WS_SKILL_DIR_OVERRIDE:-}"
+ORIG_WS_STATE_DIR_NAME_OVERRIDE="${WS_STATE_DIR_NAME_OVERRIDE:-}"
+
+restore_env() {
+  export HOME="$ORIG_HOME"
+  export USERPROFILE="$ORIG_USERPROFILE"
+  export WS_HOME_OVERRIDE="$ORIG_WS_HOME_OVERRIDE"
+  export WS_SKILL_DIR_OVERRIDE="$ORIG_WS_SKILL_DIR_OVERRIDE"
+  export WS_STATE_DIR_NAME_OVERRIDE="$ORIG_WS_STATE_DIR_NAME_OVERRIDE"
+}
+
+trap 'restore_env; rm -rf "$TMP"' EXIT
+
 echo "=== test-lib.sh ==="
 
 # --- ws_normalize_remote ---
@@ -108,6 +124,62 @@ assert_eq "double quote escaped" \
 assert_eq "normal string unchanged" \
   "hello-world_123" \
   "$(ws_json_escape 'hello-world_123')"
+
+# --- ws_home_dir / ws_workspace_sync_config_path / ws_projects_dir ---
+echo ""
+echo "ws_home_dir / ws_workspace_sync_config_path / ws_projects_dir"
+
+WIN_HOME="$TMP/win-home"
+LINUX_HOME="$TMP/linux-home"
+mkdir -p "$WIN_HOME/.claude/skills/workspace-sync" "$WIN_HOME/.claude/projects"
+mkdir -p "$WIN_HOME/.codex/skills/workspace-sync" "$WIN_HOME/.codex/projects"
+mkdir -p "$LINUX_HOME/.claude"
+touch "$WIN_HOME/.claude/skills/workspace-sync/config.json"
+touch "$WIN_HOME/.codex/skills/workspace-sync/config.json"
+
+export USERPROFILE="$WIN_HOME"
+export HOME="$LINUX_HOME"
+unset WS_HOME_OVERRIDE
+unset WS_SKILL_DIR_OVERRIDE
+export WS_STATE_DIR_NAME_OVERRIDE=".codex"
+
+assert_eq "prefer USERPROFILE-backed .claude over HOME" \
+  "$WIN_HOME" \
+  "$(ws_home_dir)"
+
+assert_eq "default state root follows current CLI when detectable" \
+  "$WIN_HOME/.codex" \
+  "$(ws_default_state_root)"
+
+assert_eq "resolve workspace-sync config from discovered home" \
+  "$WIN_HOME/.codex/skills/workspace-sync/config.json" \
+  "$(ws_workspace_sync_config_path)"
+
+assert_eq "resolve projects dir from discovered state home" \
+  "$WIN_HOME/.codex/projects" \
+  "$(ws_projects_dir)"
+
+SOURCE_SKILL="$TMP/source-skill"
+mkdir -p "$SOURCE_SKILL/scripts"
+touch "$SOURCE_SKILL/SKILL.md"
+
+assert_eq "prefer script-adjacent skill dir for code lookup" \
+  "$SOURCE_SKILL" \
+  "$(ws_workspace_sync_dir "$SOURCE_SKILL/scripts")"
+
+assert_eq "fall back to installed config when source tree has no config" \
+  "$WIN_HOME/.codex/skills/workspace-sync/config.json" \
+  "$(ws_workspace_sync_config_path "$SOURCE_SKILL/scripts")"
+
+assert_eq "derive default local-paths next to config root" \
+  "$WIN_HOME/.claude/skills/workspace-sync/local-paths.json" \
+  "$(ws_default_workspace_sync_local_paths "$WIN_HOME/.claude/skills/workspace-sync/config.json")"
+
+assert_eq "derive default cache dir next to config root" \
+  "$WIN_HOME/.claude/workspace-cache" \
+  "$(ws_default_workspace_cache_dir "$WIN_HOME/.claude/skills/workspace-sync/config.json")"
+
+restore_env
 
 # --- ws_write_local_mapping / ws_get_local_mapping_path ---
 echo ""

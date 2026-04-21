@@ -166,14 +166,14 @@ Windows 下建议使用：
 git clone https://github.com/<your-username>/workspace-sync
 cd workspace-sync
 
-# 安装到 ~/.claude/skills/workspace-sync
+# 默认安装到当前 CLI 的 skills/workspace-sync
 ./install.sh
 ```
 
 安装完成后，会把运行时需要的文件复制到：
 
 ```text
-~/.claude/skills/workspace-sync
+<当前 CLI 状态目录>/skills/workspace-sync
 ```
 
 首次安装时，如果目标目录下还没有 `config.json`，安装脚本会自动用模板初始化一份。
@@ -240,7 +240,7 @@ workspace-sync/
 安装后，配置文件默认位于：
 
 ```text
-~/.claude/skills/workspace-sync/config.json
+<当前 CLI 状态目录>/skills/workspace-sync/config.json
 ```
 
 它由 `templates/config.json.example` 初始化而来。
@@ -264,8 +264,8 @@ workspace-sync/
     "prefix": "workspaces/",
     "mc_alias": "claude-workspace-sync"
   },
-  "cache_dir": "~/.claude/workspace-cache",
-  "local_paths_file": "~/.claude/skills/workspace-sync/local-paths.json",
+  "cache_dir": null,
+  "local_paths_file": null,
   "scan_roots": [
     "D:/work",
     "D:/src"
@@ -277,6 +277,9 @@ workspace-sync/
 
 - `backend` 可选 `gitlab` / `minio`
 - 首次使用时如果未配置完整，Claude 会进入交互式配置流程
+- `cache_dir` 为 `null` 或空时，默认使用当前 CLI 状态目录下的 `workspace-cache`
+- `local_paths_file` 为 `null` 或空时，默认使用当前 CLI 状态目录下的 `skills/workspace-sync/local-paths.json`
+- 当前 CLI 状态目录示例：Claude 为 `~/.claude`，Codex 为 `~/.codex`
 - `config.json` 和 `local-paths.json` 都应保留在本地，不应提交到仓库
 
 ---
@@ -402,7 +405,7 @@ workspace-sync/
 标准接口文件：
 
 ```text
-~/.claude/skills/<skill-name>/workspace-sync.contract.json
+<当前 CLI 状态目录>/skills/<skill-name>/workspace-sync.contract.json
 ```
 
 示例模板：
@@ -472,7 +475,7 @@ gitlab.yc.com/ukon/shanks-manage
 如果最终需要用户确认或手工输入路径，Claude 会把结果写入：
 
 ```text
-~/.claude/skills/workspace-sync/local-paths.json
+<当前 CLI 状态目录>/skills/workspace-sync/local-paths.json
 ```
 
 后续再拉取同一个项目时，就会直接复用这份映射。

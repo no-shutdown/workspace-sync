@@ -29,7 +29,7 @@ skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
 
 ## 配置文件
 
-`~/.claude/skills/workspace-sync/config.json`(参考 `templates/config.json.example`):
+`<当前 CLI 状态目录>/skills/workspace-sync/config.json`(参考 `templates/config.json.example`):
 
 ```json
 {
@@ -56,13 +56,19 @@ skill 不会自动创建仓库/bucket/目录,目标不存在时直接报错。
     "prefix": "workspaces/",
     "mc_alias": "claude-workspace-sync"
   },
-  "cache_dir": "~/.claude/workspace-cache",
-  "local_paths_file": "~/.claude/skills/workspace-sync/local-paths.json",
+  "cache_dir": null,
+  "local_paths_file": null,
   "scan_roots": ["D:/work", "D:/src"]
 }
 ```
 
 `backend` 为 `null` 或对应 backend 必填字段为空时,进入首次配置流程(见 `references/setup.md`)。
+
+补充说明:
+
+- `cache_dir` 为 `null` 或空时,默认使用当前 CLI 状态目录下的 `workspace-cache`
+- `local_paths_file` 为 `null` 或空时,默认使用当前 CLI 状态目录下的 `skills/workspace-sync/local-paths.json`
+- 当前 CLI 状态目录示例: Claude 为 `~/.claude`, Codex 为 `~/.codex`
 
 ## 工作空间目录结构
 
@@ -173,7 +179,7 @@ remote key 用 `ws_normalize_remote`(来自 `scripts/workspace-sync-lib.sh`)规�
 ## Step 0: 加载配置 & 校验
 
 ```bash
-WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
+WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
 CONFIG="$WS_SKILL_DIR/config.json"
 
 BACKEND=$(python3 -c "
@@ -187,6 +193,12 @@ except Exception:
 ```
 
 `BACKEND` 为空或对应 backend 必填字段缺失 → 读取 `references/setup.md` 执行首次配置,完成后继续当前命令。
+
+补充原则:
+
+- 这里的关键是“读到当前实际生效的 config.json”，不是假设一定在某个固定的状态目录路径下。
+- 如果脚本与运行环境存在 Git Bash / WSL / MSYS / Windows 路径差异，优先修正解析方式，而不是重复执行同一条失败命令。
+- 低风险只读操作优先语义正确和快速返回，不要被某个脚本调用形式绑死。
 
 **validate_ws_name**(所有涉及 WS_NAME 的命令在操作前先调用):
 
@@ -223,6 +235,12 @@ validate_ws_name "$WS_NAME" || {
 # List 流程
 
 > 详细步骤见 `action/list.md`
+
+额外约束:
+
+- `list` 的本质是“本地缓存只读查询”。
+- 优先从本地缓存直接得到结果；只有本地缓存为空时才考虑远端。
+- `ws-list.sh` 是推荐实现，不是唯一合法实现。若脚本因环境兼容问题不可用，可直接遍历缓存目录和 `manifest.json` 做等价读取。
 
 ---
 

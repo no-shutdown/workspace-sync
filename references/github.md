@@ -24,7 +24,7 @@ token 需要 `repo` scope（私有仓库）或 `public_repo` scope（公开仓�
 GITHUB_TOKEN=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('token') or '')" 2>/dev/null)
 GITHUB_REPO=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('repo') or '')" 2>/dev/null)
 GITHUB_BRANCH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print((d.get('github') or {}).get('branch') or 'main')" 2>/dev/null)
-CACHE_DIR="${CACHE_DIR:-$HOME/.claude/workspace-cache}"
+CACHE_DIR="${CACHE_DIR:-<当前 CLI 状态目录>/workspace-cache}"
 ```
 
 ## connect（含仓库验证）

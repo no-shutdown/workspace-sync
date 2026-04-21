@@ -2,14 +2,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_DIR="${HOME}/.claude/skills/workspace-sync"
+# shellcheck source=./scripts/workspace-sync-lib.sh
+source "$SCRIPT_DIR/scripts/workspace-sync-lib.sh"
+
+TARGET_DIR="$(ws_default_state_root "$SCRIPT_DIR")/skills/workspace-sync"
 INIT_CONFIG=1
 
 usage() {
   cat <<'EOF'
 Usage: ./install.sh [--target <dir>] [--no-init-config]
 
-Installs the workspace-sync skill into the local Claude skills directory.
+Installs the workspace-sync skill into the current CLI skills directory by default.
 
 Options:
   --target <dir>      Install into a custom target directory.
@@ -27,7 +30,7 @@ assert_safe_target() {
   }
 
   case "$target" in
-    /|.|"$HOME"|"$HOME/.claude"|"$HOME/.claude/skills")
+    /|.|"$HOME"|"$HOME/.claude"|"$HOME/.claude/skills"|"$HOME/.codex"|"$HOME/.codex/skills")
       echo "Refusing to install to unsafe target: $target" >&2
       exit 1
       ;;

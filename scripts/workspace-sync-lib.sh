@@ -9,29 +9,92 @@ ws_command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-ws_home_dir() {
+_ws_add_unique_path() {
+  local -n arr_ref="$1"
+  local candidate="$2"
+  local existing
+
+  [[ -n "$candidate" ]] || return 0
+
+  for existing in "${arr_ref[@]}"; do
+    [[ "$existing" == "$candidate" ]] && return 0
+  done
+
+  arr_ref+=("$candidate")
+}
+
+ws_candidate_home_dirs() {
+  local -a candidates=()
   local candidate=""
 
   if [[ -n "${WS_HOME_OVERRIDE:-}" ]]; then
-    printf '%s\n' "$(ws_to_unix_path "$WS_HOME_OVERRIDE")"
-    return 0
+    _ws_add_unique_path candidates "$(ws_to_unix_path "$WS_HOME_OVERRIDE")"
   fi
 
   if [[ -n "${USERPROFILE:-}" ]]; then
-    candidate="$(ws_to_unix_path "$USERPROFILE")"
-    if [[ -d "$candidate/.claude" ]]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  fi
-
-  if [[ -n "${HOME:-}" && -d "$HOME/.claude" ]]; then
-    printf '%s\n' "$HOME"
-    return 0
+    _ws_add_unique_path candidates "$(ws_to_unix_path "$USERPROFILE")"
   fi
 
   for candidate in /c/Users/* /mnt/c/Users/*; do
-    [[ -d "$candidate/.claude" ]] || continue
+    [[ -d "$candidate" ]] || continue
+    _ws_add_unique_path candidates "$candidate"
+  done
+
+  if [[ -n "${HOME:-}" ]]; then
+    _ws_add_unique_path candidates "$(ws_to_unix_path "$HOME")"
+  fi
+
+  printf '%s\n' "${candidates[@]}"
+}
+
+ws_current_cli_state_dir_name() {
+  if [[ -n "${WS_STATE_DIR_NAME_OVERRIDE:-}" ]]; then
+    printf '%s\n' "$WS_STATE_DIR_NAME_OVERRIDE"
+    return 0
+  fi
+
+  if [[ -n "${CODEX_HOME:-}" ]] || env | grep -q '^CODEX_'; then
+    printf '%s\n' ".codex"
+    return 0
+  fi
+
+  if [[ -n "${CLAUDE_HOME:-}" ]] || env | grep -q '^CLAUDE'; then
+    printf '%s\n' ".claude"
+    return 0
+  fi
+}
+
+ws_state_dir_names() {
+  local -a state_dirs=()
+  local preferred=""
+
+  preferred="$(ws_current_cli_state_dir_name)"
+  _ws_add_unique_path state_dirs "$preferred"
+  _ws_add_unique_path state_dirs ".claude"
+  _ws_add_unique_path state_dirs ".codex"
+
+  printf '%s\n' "${state_dirs[@]}"
+}
+
+ws_home_dir() {
+  local -a candidates=()
+  local -a state_dirs=()
+  local candidate=""
+  local state_dir=""
+
+  mapfile -t candidates < <(ws_candidate_home_dirs)
+  mapfile -t state_dirs < <(ws_state_dir_names)
+
+  for state_dir in "${state_dirs[@]}"; do
+    for candidate in "${candidates[@]}"; do
+      [[ -d "$candidate/$state_dir" ]] || continue
+      printf '%s\n' "$candidate"
+      return 0
+    done
+  done
+
+  for candidate in "${candidates[@]}"; do
+    [[ -d "$candidate" ]] || continue
     printf '%s\n' "$candidate"
     return 0
   done
@@ -41,7 +104,7 @@ ws_home_dir() {
     return 0
   fi
 
-  printf '%s\n' "${HOME:-}"
+  printf '%s\n' "$(ws_to_unix_path "${HOME:-}")"
 }
 
 ws_expand_home() {
@@ -97,6 +160,188 @@ ws_to_host_path() {
     cygpath -w "$path"
   else
     printf '%s\n' "$path"
+  fi
+}
+
+ws_state_root_from_path() {
+  local path="${1:-}"
+
+  [[ -n "$path" ]] || return 1
+  path="$(ws_to_unix_path "$path")"
+  path="${path%/}"
+
+  if [[ "$path" =~ ^(.*)/(\.claude|\.codex)(/.*)?$ ]]; then
+    printf '%s/%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    return 0
+  fi
+
+  return 1
+}
+
+ws_default_state_root() {
+  local anchor="${1:-}"
+  local state_root=""
+  local -a candidates=()
+  local -a state_dirs=()
+  local candidate=""
+  local state_dir=""
+
+  if [[ -n "${WS_STATE_ROOT_OVERRIDE:-}" ]]; then
+    printf '%s\n' "$(ws_to_unix_path "$WS_STATE_ROOT_OVERRIDE")"
+    return 0
+  fi
+
+  state_root="$(ws_state_root_from_path "$anchor" 2>/dev/null || true)"
+  if [[ -n "$state_root" ]]; then
+    printf '%s\n' "$state_root"
+    return 0
+  fi
+
+  mapfile -t candidates < <(ws_candidate_home_dirs)
+  mapfile -t state_dirs < <(ws_state_dir_names)
+
+  for state_dir in "${state_dirs[@]}"; do
+    for candidate in "${candidates[@]}"; do
+      [[ -d "$candidate/$state_dir" ]] || continue
+      printf '%s\n' "$candidate/$state_dir"
+      return 0
+    done
+  done
+
+  for candidate in "${candidates[@]}"; do
+    [[ -d "$candidate" ]] || continue
+    printf '%s\n' "$candidate/${state_dirs[0]}"
+    return 0
+  done
+
+  printf '%s\n' "$(ws_home_dir)/${state_dirs[0]}"
+}
+
+ws_default_workspace_cache_dir() {
+  local anchor="${1:-}"
+  printf '%s\n' "$(ws_default_state_root "$anchor")/workspace-cache"
+}
+
+ws_default_workspace_sync_local_paths() {
+  local anchor="${1:-}"
+  printf '%s\n' "$(ws_default_state_root "$anchor")/skills/workspace-sync/local-paths.json"
+}
+
+ws_projects_dir() {
+  local -a candidates=()
+  local -a state_dirs=()
+  local candidate=""
+  local state_dir=""
+  local projects_dir=""
+
+  mapfile -t candidates < <(ws_candidate_home_dirs)
+  mapfile -t state_dirs < <(ws_state_dir_names)
+  for state_dir in "${state_dirs[@]}"; do
+    for candidate in "${candidates[@]}"; do
+      projects_dir="$candidate/$state_dir/projects"
+      [[ -d "$projects_dir" ]] || continue
+      printf '%s\n' "$projects_dir"
+      return 0
+    done
+  done
+
+  printf '%s\n' "$(ws_default_state_root)/projects"
+}
+
+ws_skills_root() {
+  local -a candidates=()
+  local -a state_dirs=()
+  local candidate=""
+  local state_dir=""
+  local skills_root=""
+
+  mapfile -t candidates < <(ws_candidate_home_dirs)
+  mapfile -t state_dirs < <(ws_state_dir_names)
+  for state_dir in "${state_dirs[@]}"; do
+    for candidate in "${candidates[@]}"; do
+      skills_root="$candidate/$state_dir/skills"
+      [[ -d "$skills_root" ]] || continue
+      printf '%s\n' "$skills_root"
+      return 0
+    done
+  done
+
+  printf '%s\n' "$(ws_default_state_root)/skills"
+}
+
+ws_workspace_sync_dir() {
+  local script_dir="${1:-}"
+  local candidate=""
+  local -a candidates=()
+  local -a state_dirs=()
+  local state_dir=""
+  local skill_dir=""
+
+  if [[ -n "${WS_SKILL_DIR_OVERRIDE:-}" ]]; then
+    printf '%s\n' "$(ws_to_unix_path "$WS_SKILL_DIR_OVERRIDE")"
+    return 0
+  fi
+
+  if [[ -n "$script_dir" ]]; then
+    candidate="$(cd -- "$script_dir/.." && pwd)"
+    if [[ -f "$candidate/SKILL.md" && -d "$candidate/scripts" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  mapfile -t candidates < <(ws_candidate_home_dirs)
+  mapfile -t state_dirs < <(ws_state_dir_names)
+  for state_dir in "${state_dirs[@]}"; do
+    for candidate in "${candidates[@]}"; do
+      skill_dir="$candidate/$state_dir/skills/workspace-sync"
+      [[ -f "$skill_dir/SKILL.md" ]] || continue
+      printf '%s\n' "$skill_dir"
+      return 0
+    done
+  done
+
+  if [[ -n "$script_dir" ]]; then
+    printf '%s\n' "$(cd -- "$script_dir/.." && pwd)"
+  fi
+}
+
+ws_workspace_sync_config_path() {
+  local script_dir="${1:-}"
+  local skill_dir=""
+  local fallback_config=""
+  local candidate=""
+  local -a candidates=()
+  local -a state_dirs=()
+  local state_dir=""
+
+  if [[ -n "$script_dir" ]]; then
+    skill_dir="$(ws_workspace_sync_dir "$script_dir")"
+    if [[ -n "$skill_dir" && -f "$skill_dir/config.json" ]]; then
+      printf '%s\n' "$skill_dir/config.json"
+      return 0
+    fi
+    [[ -n "$skill_dir" ]] && fallback_config="$skill_dir/config.json"
+  fi
+
+  mapfile -t candidates < <(ws_candidate_home_dirs)
+  mapfile -t state_dirs < <(ws_state_dir_names)
+  for state_dir in "${state_dirs[@]}"; do
+    for candidate in "${candidates[@]}"; do
+      skill_dir="$candidate/$state_dir/skills/workspace-sync/config.json"
+      [[ -f "$skill_dir" ]] || continue
+      printf '%s\n' "$skill_dir"
+      return 0
+    done
+  done
+
+  if [[ -z "$fallback_config" ]]; then
+    skill_dir="$(ws_workspace_sync_dir "$script_dir")"
+    [[ -n "$skill_dir" ]] && fallback_config="$skill_dir/config.json"
+  fi
+
+  if [[ -n "$fallback_config" ]]; then
+    printf '%s\n' "$fallback_config"
   fi
 }
 
@@ -752,7 +997,7 @@ ws_list_skill_contracts() {
   local skill_name
   local contract_path
 
-  skills_root="$(ws_home_dir)/.claude/skills"
+  skills_root="$(ws_skills_root)"
   [[ -d "$skills_root" ]] || return 0
 
   for skill_dir in "$skills_root"/*; do

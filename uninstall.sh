@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET_DIR="${HOME}/.claude/skills/workspace-sync"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./scripts/workspace-sync-lib.sh
+source "$SCRIPT_DIR/scripts/workspace-sync-lib.sh"
+
+TARGET_DIR="$(ws_default_state_root "$SCRIPT_DIR")/skills/workspace-sync"
 ASSUME_YES=0
 
 usage() {
@@ -26,7 +30,7 @@ assert_safe_target() {
   }
 
   case "$target" in
-    /|.|"$HOME"|"$HOME/.claude"|"$HOME/.claude/skills")
+    /|.|"$HOME"|"$HOME/.claude"|"$HOME/.claude/skills"|"$HOME/.codex"|"$HOME/.codex/skills")
       echo "Refusing to uninstall unsafe target: $target" >&2
       exit 1
       ;;

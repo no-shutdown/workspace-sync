@@ -10,7 +10,7 @@ workspace-sync.contract.json
 放置位置：
 
 ```text
-~/.claude/skills/<skill-name>/workspace-sync.contract.json
+<当前 CLI 状态目录>/skills/<skill-name>/workspace-sync.contract.json
 ```
 
 ## 目标

@@ -8,66 +8,86 @@
 
 ## 作用
 
-列出当前后端中已保存的 workspace，列出后直接引导用户选一个恢复，不需要再手动输入 pull。
+列出当前 backend 中已保存的 workspace。列出后立即引导用户选择一个继续恢复，但如果用户明确表示“只是看一下”，就停在列表，不进入 `pull`。
+
+## 执行原则
+
+- `list` 是低风险、只读操作。优先用最短路径返回结果。
+- 优先读取本地缓存，不做 `git pull`、不发网络请求。
+- 脚本是推荐实现，不是唯一实现。只要满足“本地缓存优先、无网络、输出 `name|version|updated_at`”这三个条件，就算符合 skill 语义。
+- 不要因为 shell 类型、路径前缀、编码显示或 `HOME` 差异而卡住；遇到环境兼容问题时，直接切到等价 fallback。
 
 ## 执行步骤
 
-### Step 1: 读取本地缓存（无网络）
+### Step 1: 读取本地缓存
 
-**严格规则：整个 list 流程只允许执行 ws-list.sh 一次。** 无论终端显示是否乱码，都不得重跑脚本。
+首选运行 `scripts/ws-list.sh` 的默认模式。
 
-使用以下固定的单条 Bash 命令完成"运行 + 解码 + 解析"，**不拆成多条**：
+要求：
 
-```bash
-bash "/c/Users/Administrator/.claude/skills/workspace-sync/scripts/ws-list.sh" | python3 -c "
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-lines = sys.stdin.buffer.read().decode('utf-8').splitlines()
-for line in lines:
-    print(line)
-"
-```
+- 只读本地缓存
+- 不触发 clone / pull / API 请求
+- 输出格式固定为 `name|version|updated_at`
 
-- 脚本输出已是 UTF-8 字节（`PYTHONIOENCODING=utf-8` 保证）
-- Bash tool 终端可能显示乱码，但字节是正确的，直接解析即可
-- **禁止**因乱码重跑脚本、改用 Python subprocess、写临时文件再读
+如果脚本运行成功，直接进入 Step 2。
 
-脚本从本地缓存目录读取，**不做 git pull / 网络请求**，输出 `name|version|updated_at` 格式，每行一条。
+### Step 1a: 脚本不可用时的 fallback
 
-**输出情况处理：**
+以下情况都算“脚本不可用”：
 
-| 输出内容 | 含义 | 处理 |
-|---|---|---|
-| 正常列表行 | 本地有缓存 | 展示列表，进入 Step 2 |
-| 空输出 | 本地缓存为空 | 提示用户，询问是否获取远端列表 → Step 1b |
-| `__NO_LOCAL_CACHE__` | 首次使用/无缓存目录 | 提示用户，询问是否获取远端列表 → Step 1b |
+- shell 环境与脚本假设不一致，例如 Git Bash / WSL / MSYS 路径前缀不同
+- `HOME`、`USERPROFILE`、技能安装目录或配置目录解析错误
+- 终端编码显示异常，导致无法可靠读取脚本输出
+- 脚本本身缺失，但本地缓存和 `manifest.json` 可直接读取
 
-### Step 1b: 获取远端列表（仅当本地无缓存时）
+fallback 做法：
 
-用户确认后执行：
+1. 根据 `config.json` 确定 backend 和缓存目录
+2. 找到对应的本地缓存根目录
+3. 遍历每个 workspace 目录下的 `manifest.json`
+4. 提取：
+   - `name`
+   - `version`
+   - `updated_at`
+5. 组装成与脚本一致的逻辑结果
 
-```bash
-bash "$WS_SKILL_DIR/scripts/ws-list.sh" --remote
-```
+注意：
 
-远端列表版本号显示为 `-`（仅列名，不下载内容）。若远端也为空，明确告知并停止。
+- 这是 `list` 的合法实现，不算“偏离 skill”
+- 不要为了拘泥某条命令格式而放弃更直接的本地读取
+- 不要因为第一次脚本失败，就放弃整个 `list`
 
-### Step 2: 展示列表并引导选择
+### Step 1b: 本地缓存为空时再查远端
 
-将脚本输出整理为编号列表展示，**展示后立即追加选择引导**：
+只有在本地缓存为空或不存在时，才进入这一步。
 
-```
+先明确告知用户“本地没有缓存”，再询问是否获取远端列表。用户确认后，才允许运行远端模式。
+
+远端列表只用于列名称；除 MinIO 等必须读取 manifest 的场景外，不主动下载完整 workspace 内容。
+
+### Step 2: 展示列表并立即给出下一步引导
+
+将结果整理成编号列表：
+
+```text
 1. feature-x     (v3, 2026-04-17T18:20:00+08:00)
 2. bugfix-login  (v1, 2026-04-16T09:10:00+08:00)
 
 回复序号或 workspace 名称继续恢复；回复 q 只查看不恢复。
 ```
 
-即使列表里只有一个 workspace，也先展示再确认，不擅自 pull。
+要求：
 
-用户回复 `q` / `cancel` / `quit` → 停止，不执行 pull。
+- 即使只有一个 workspace，也先展示，再由用户确认
+- 不擅自进入 `pull`
+- 如果用户明确表示“只是 list 一下”或回复 `q` / `cancel` / `quit`，就在这里停止
 
-### Step 3: 解析用户选择 → 进入 Pull 流程
+### Step 3: 解析用户选择，再进入 pull
 
-用户回复序号或精确名称 → 等价于 `/workspace-sync pull <name>`，进入 `action/pull.md`。
-序号或名称不合法时，明确报错并要求重新选择。
+只有当用户明确选择序号或精确名称时，才等价进入：
+
+```bash
+/workspace-sync pull <name>
+```
+
+选择无效时，明确报错并要求重新选择。

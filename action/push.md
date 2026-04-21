@@ -15,7 +15,7 @@
 ### Step 1: 运行 prepare 脚本
 
 ```bash
-WS_SKILL_DIR="$HOME/.claude/skills/workspace-sync"
+WS_SKILL_DIR="<当前实际使用的 workspace-sync skill 目录>"
 chmod +x "$WS_SKILL_DIR/scripts/ws-push-prepare.sh"
 bash "$WS_SKILL_DIR/scripts/ws-push-prepare.sh" "$WS_NAME"
 ```

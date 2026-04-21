@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./workspace-sync-lib.sh
 source "$SCRIPT_DIR/workspace-sync-lib.sh"
 
-CONFIG_PATH="$(ws_home_dir)/.claude/skills/workspace-sync/config.json"
+CONFIG_PATH="$(ws_workspace_sync_config_path "$SCRIPT_DIR")"
 LOCAL_PATHS_FILE=""
 REMOTE_URL=""
 REPO_NAME=""
@@ -112,7 +112,7 @@ CONFIG_PATH="$(ws_expand_home "$CONFIG_PATH")"
 if [[ -z "$LOCAL_PATHS_FILE" ]]; then
   LOCAL_PATHS_FILE="$(ws_get_config_string "$CONFIG_PATH" "local_paths_file")"
 fi
-[[ -n "$LOCAL_PATHS_FILE" ]] || LOCAL_PATHS_FILE="~/.claude/skills/workspace-sync/local-paths.json"
+[[ -n "$LOCAL_PATHS_FILE" ]] || LOCAL_PATHS_FILE="$(ws_default_workspace_sync_local_paths "$CONFIG_PATH")"
 LOCAL_PATHS_FILE="$(ws_expand_home "$LOCAL_PATHS_FILE")"
 
 REMOTE_KEY="$(ws_normalize_remote "$REMOTE_URL")"
