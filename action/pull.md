@@ -106,17 +106,28 @@ bash "$WS_SKILL_DIR/scripts/ws-pull-fetch.sh" "$WS_NAME"
 
 ### Step 3: 读取 summary.md，呈现上下文
 
-Claude 用 Read 工具读 `summary_path`，向用户呈现完整上下文：
+Claude 用 Read 工具读 `summary_path`，按以下顺序向用户呈现完整上下文。**呈现重点是让用户立刻知道"我们在做什么、讨论了什么、结论是什么"，而不只是代码停在哪。**
 
 ```
-✓ 工作空间已恢复: <name> (v<version>，来自 <source_device>)
+✓ 工作空间已恢复: <name> (v<version>，来自 <source_device>，<updated_at>)
   来源: 远端拉取 / 本地缓存（仅本地存在）
 
-  上下文摘要：
-  <summary.md 中整体目标 / 背景与约束 / 各项目状态的要点>
+  【整体目标】
+  <summary.md 整体目标的完整内容>
 
-  代码恢复:
+  【背景与约束】
+  <summary.md 背景与约束的内容，若有>
+
+  【讨论脉络】
+  <summary.md 讨论脉络的内容——这是最关键的上下文，完整呈现，不要省略>
+
+  【关键决策】
+  <summary.md 关键决策的内容，若有>
+
+  【代码状态】
+  <各项目的进行中 / 下一步>
     - shanks-manage: ✓ HEAD=abc123, branch=feature/import
+        进行中: <内容>  下一步: <内容>
     - shanks-web:    ⚠ 跳过（本地有未提交改动）
 
   skill 状态: <done/skipped 汇总>
@@ -129,4 +140,4 @@ Claude 用 Read 工具读 `summary_path`，向用户呈现完整上下文：
 - 这些项目的代码现场**未完全恢复**
 - summary 中与它们相关的内容只能作为参考，不代表当前代码事实
 
-呈现完毕后，直接进入上下文状态（可以立即继续工作），不需要用户再输入任何命令。
+**呈现完毕后，主动根据 summary 中的"下一步"给出具体的衔接建议**（如"根据摘要，下一步是继续写 XXController 的 handleSubmit 方法，要开始吗？"），不需要用户再输入任何命令。

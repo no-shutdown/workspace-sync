@@ -18,7 +18,10 @@
       "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/scripts/ws-backend.sh\" \"/d/A-my/claude-code-workspace-sync/scripts/ws-backend.sh\")",
       "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/action/list.md\" \"/d/A-my/claude-code-workspace-sync/action/list.md\")",
       "Bash(cp \"/c/Users/Administrator/.claude/skills/workspace-sync/action/pull.md\" \"/d/A-my/claude-code-workspace-sync/action/pull.md\")",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(cp \"/d/A-my/claude-code-workspace-sync/SKILL.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/SKILL.md\")",
+      "Bash(cp \"/d/A-my/claude-code-workspace-sync/action/push.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/action/push.md\")",
+      "Bash(cp \"/d/A-my/claude-code-workspace-sync/action/pull.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/action/pull.md\")"
     ]
   }
 }
