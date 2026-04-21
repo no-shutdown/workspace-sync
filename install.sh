@@ -119,6 +119,7 @@ copy_file "$SCRIPT_DIR/scripts/resolve-project-path.sh" "$TARGET_DIR/scripts/res
 copy_file "$SCRIPT_DIR/scripts/run-skill-state-export.sh" "$TARGET_DIR/scripts/run-skill-state-export.sh"
 copy_file "$SCRIPT_DIR/scripts/run-skill-state-import.sh" "$TARGET_DIR/scripts/run-skill-state-import.sh"
 copy_file "$SCRIPT_DIR/scripts/set-local-path.sh" "$TARGET_DIR/scripts/set-local-path.sh"
+copy_file "$SCRIPT_DIR/scripts/ws-config.sh" "$TARGET_DIR/scripts/ws-config.sh"
 copy_file "$SCRIPT_DIR/scripts/workspace-sync-lib.sh" "$TARGET_DIR/scripts/workspace-sync-lib.sh"
 copy_file "$SCRIPT_DIR/scripts/ws-backend.sh" "$TARGET_DIR/scripts/ws-backend.sh"
 copy_file "$SCRIPT_DIR/scripts/ws-clean.sh" "$TARGET_DIR/scripts/ws-clean.sh"
@@ -130,6 +131,7 @@ copy_file "$SCRIPT_DIR/docs/skill-state-contract.md" "$TARGET_DIR/docs/skill-sta
 copy_file "$SCRIPT_DIR/action/push.md" "$TARGET_DIR/action/push.md"
 copy_file "$SCRIPT_DIR/action/pull.md" "$TARGET_DIR/action/pull.md"
 copy_file "$SCRIPT_DIR/action/list.md" "$TARGET_DIR/action/list.md"
+copy_file "$SCRIPT_DIR/action/config.md" "$TARGET_DIR/action/config.md"
 copy_file "$SCRIPT_DIR/action/clean.md" "$TARGET_DIR/action/clean.md"
 copy_file "$SCRIPT_DIR/references/backend-interface.md" "$TARGET_DIR/references/backend-interface.md"
 copy_file "$SCRIPT_DIR/references/github.md" "$TARGET_DIR/references/github.md"
@@ -148,6 +150,7 @@ chmod +x "$TARGET_DIR/scripts/resolve-project-path.sh"
 chmod +x "$TARGET_DIR/scripts/run-skill-state-export.sh"
 chmod +x "$TARGET_DIR/scripts/run-skill-state-import.sh"
 chmod +x "$TARGET_DIR/scripts/set-local-path.sh"
+chmod +x "$TARGET_DIR/scripts/ws-config.sh"
 chmod +x "$TARGET_DIR/scripts/ws-backend.sh"
 chmod +x "$TARGET_DIR/scripts/ws-clean.sh"
 chmod +x "$TARGET_DIR/scripts/ws-list.sh"
@@ -177,6 +180,7 @@ Files:
   $TARGET_DIR/scripts/run-skill-state-export.sh
   $TARGET_DIR/scripts/run-skill-state-import.sh
   $TARGET_DIR/scripts/set-local-path.sh
+  $TARGET_DIR/scripts/ws-config.sh
   $TARGET_DIR/scripts/ws-backend.sh
   $TARGET_DIR/scripts/ws-clean.sh
   $TARGET_DIR/scripts/ws-list.sh

@@ -41,6 +41,7 @@ Claude Code 的上下文默认是本地的。
 /workspace-sync push "feature-x"   # 离开当前设备前
 /workspace-sync pull "feature-x"   # 在另一台设备继续
 /workspace-sync list               # 查看列表,并可直接选择一个继续
+/workspace-sync config             # 随时重配 backend / token / 本地目录
 /workspace-sync clean "feature-x"  # 手动清理一个 workspace
 ```
 
@@ -76,6 +77,12 @@ Claude Code 的上下文默认是本地的。
 - 支持删除当前 backend 下的全部 workspace
 - 同时清理本地 staging 缓存和待导入的 skill 状态缓存
 - 删除前强制二次确认
+
+### config 时会做什么
+
+- 重新走一遍配置流程
+- 验证目录 / 仓库 / bucket 是否可用
+- 只更新当前 backend 的配置，保留其他本地字段
 
 ---
 
@@ -120,12 +127,26 @@ git push              # 本地提交必须已经推送
 
 ## 存储后端
 
-当前支持两种后端，二选一：
+当前支持四种后端，四选一：
 
+- Local
+- GitHub
 - GitLab
 - MinIO
 
 前提要求：
+
+### Local
+
+你需要准备：
+- 一个已经存在的本地目录
+- 如果要跨设备，建议这个目录由 Dropbox / OneDrive / iCloud 等工具同步
+
+### GitHub
+
+你需要准备：
+- 一个已经存在的 GitHub 仓库
+- 有 `repo` scope 的 Personal Access Token
 
 ### GitLab
 
@@ -140,7 +161,7 @@ git push              # 本地提交必须已经推送
 - 有权限的 `access_key` / `secret_key`
 - 本机已经安装 `mc`
 
-这个 skill 不会自动创建 GitLab 仓库或 MinIO bucket。
+这个 skill 不会自动创建仓库、bucket 或本地目录。
 
 ---
 
@@ -216,6 +237,9 @@ workspace-sync/
 │   └── import-skill-states.sh
 │   └── run-skill-state-export.sh
 │   └── run-skill-state-import.sh
+│   └── ws-config.sh
+├── action/
+│   └── config.md
 └── templates/
     ├── config.json.example
     └── workspace-sync.contract.example.json
@@ -249,7 +273,15 @@ workspace-sync/
 
 ```json
 {
-  "backend": "gitlab",
+  "backend": "local",
+  "local": {
+    "path": "~/Dropbox/claude-workspaces"
+  },
+  "github": {
+    "token": "ghp_xxxxxxxxxxxx",
+    "repo": "your-username/claude-workspaces",
+    "branch": "main"
+  },
   "gitlab": {
     "host": "gitlab.com",
     "token": "glpat-xxx",
@@ -275,8 +307,9 @@ workspace-sync/
 
 注意：
 
-- `backend` 可选 `gitlab` / `minio`
+- `backend` 可选 `local` / `github` / `gitlab` / `minio`
 - 首次使用时如果未配置完整，Claude 会进入交互式配置流程
+- 后续如果配置变了，可直接执行 `/workspace-sync config` 重新配置
 - `cache_dir` 为 `null` 或空时，默认使用当前 CLI 状态目录下的 `workspace-cache`
 - `local_paths_file` 为 `null` 或空时，默认使用当前 CLI 状态目录下的 `skills/workspace-sync/local-paths.json`
 - 当前 CLI 状态目录示例：Claude 为 `~/.claude`，Codex 为 `~/.codex`
@@ -317,8 +350,17 @@ workspace-sync/
 这个命令不再只是“看一下”。
 
 列出 workspace 后，你可以直接回复序号或名称，Claude 会把它当作一次 `pull` 继续恢复，不需要你再手动输入 `/workspace-sync pull <name>`。
+如果本地缓存里没有你想找的名字，Claude 会继续补查远端完整列表，避免你因为想不起 workspace 名称而卡住。
 
-### 4. 手动清理
+### 4. 重新配置
+
+```bash
+/workspace-sync config
+```
+
+当你切换 backend、token、bucket、本地同步目录时，可以直接执行这个命令重新配置，不需要卸载重装 skill。
+
+### 5. 手动清理
 
 ```bash
 /workspace-sync clean my-task
@@ -609,7 +651,7 @@ gitlab.yc.com/ukon/shanks-manage
 
 ## 后续规划
 
-- GitHub / S3 后端支持
+- S3 后端支持
 - workspace 版本历史浏览与回滚
 
 ---

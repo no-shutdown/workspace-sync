@@ -1,6 +1,6 @@
 ---
 name: workspace-sync
-description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 git 项目状态)。支持 Local/GitHub/GitLab/MinIO 四种存储后端,首次使用会引导配置。无论用户明确输入 /workspace-sync 命令,还是只是提到"换台设备继续工作""下班想回家接着弄""把今天的进展同步到云端""记录一下工作状态以便切换设备",都应进入本 skill。list 不只是查看,列出后立即引导用户选一个 workspace 继续工作,不要等用户手动再打一遍 pull。
+description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 git 项目状态)。支持 Local/GitHub/GitLab/MinIO 四种存储后端,首次使用会引导配置,也支持通过 /workspace-sync config 随时重配。无论用户明确输入 /workspace-sync 命令,还是只是提到"换台设备继续工作""下班想回家接着弄""把今天的进展同步到云端""记录一下工作状态以便切换设备",都应进入本 skill。list 不只是查看,列出后立即引导用户选一个 workspace 继续工作,不要等用户手动再打一遍 pull。
 ---
 
 # Workspace Sync
@@ -239,8 +239,20 @@ validate_ws_name "$WS_NAME" || {
 额外约束:
 
 - `list` 的本质是“本地缓存只读查询”。
-- 优先从本地缓存直接得到结果；只有本地缓存为空时才考虑远端。
+- 默认优先从本地缓存直接得到结果；如果用户说“没看到想要的”“想不起名字”“给我完整列表/远端列表”，立刻补查远端轻量列表。
 - `ws-list.sh` 是推荐实现，不是唯一合法实现。若脚本因环境兼容问题不可用，可直接遍历缓存目录和 `manifest.json` 做等价读取。
+
+---
+
+# Config 流程
+
+> 详细步骤见 `action/config.md`
+
+额外约束:
+
+- `/workspace-sync config` 不是首次安装专用，而是长期存在的重配置入口。
+- `config` 与首次配置必须复用 `references/setup.md` 中的同一套提问顺序、验证逻辑和写入方式。
+- 保存时只更新当前选择 backend 的字段和 `backend` 本身；其他字段保留。
 
 ---
 

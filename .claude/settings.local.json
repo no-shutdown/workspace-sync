@@ -21,7 +21,8 @@
       "Bash(git *)",
       "Bash(cp \"/d/A-my/claude-code-workspace-sync/SKILL.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/SKILL.md\")",
       "Bash(cp \"/d/A-my/claude-code-workspace-sync/action/push.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/action/push.md\")",
-      "Bash(cp \"/d/A-my/claude-code-workspace-sync/action/pull.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/action/pull.md\")"
+      "Bash(cp \"/d/A-my/claude-code-workspace-sync/action/pull.md\" \"/c/Users/Administrator/.claude/skills/workspace-sync/action/pull.md\")",
+      "Bash(python3 *)"
     ]
   }
 }

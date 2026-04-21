@@ -1,105 +1,139 @@
-# 首次配置流程
+# 配置流程
 
-触发条件:`config.json` 中 `backend=null` 或对应 backend 的必填字段缺失。
+适用于两种场景：
 
-Claude 必须按以下顺序交互,**不要一次问所有问题**。
+- 首次使用：`config.json` 中 `backend=null` 或对应 backend 的必填字段缺失
+- 主动重配：用户执行 `/workspace-sync config`
+
+Claude 必须按以下顺序交互，**不要一次问所有问题**。
 
 ---
 
 ## Step 1: 选择后端
 
-```
-这是你第一次使用 workspace-sync,请选择云端存储后端:
+```text
+请选择 workspace-sync 的存储后端：
 
-[1] GitLab   - 把工作空间作为 commit 推到一个已存在的 GitLab 仓库
-               你需要准备:仓库地址 + Personal Access Token
+[1] Local   - 保存到本地目录，适合配合 Dropbox / OneDrive / iCloud
+[2] GitHub  - 保存到一个已存在的 GitHub 仓库
+[3] GitLab  - 保存到一个已存在的 GitLab 仓库
+[4] MinIO   - 保存到一个已存在的 MinIO bucket
 
-[2] MinIO    - 把工作空间作为对象存到一个已存在的 bucket
-               你需要准备:endpoint、access_key、secret_key、bucket 名
-               另外本机需要装 mc 客户端(MinIO CLI)
-
-请回复 1 或 2。
+请回复 1、2、3 或 4。
 ```
 
 等用户回复。
 
 ---
 
-## Step 2(选 GitLab):收集配置
+## Step 2(Local): 收集配置
 
-依次问:
-1. GitLab 主机(例如 `gitlab.com` 或 `your.gitlab.com`)
-2. Personal Access Token(scope 需要 api + read_repository + write_repository)
-3. 仓库路径(`namespace/name` 格式,**必须是已存在的仓库**)
-4. 使用的分支(默认 `main`,可直接回车跳过)
+依次问：
 
-收齐后立即验证仓库存在:
+1. 本地同步目录路径，例如 `~/Dropbox/claude-workspaces`
+
+收到后立即验证目录存在，并写入：
 
 ```bash
-ENC_PATH=$(printf '%s' "$GITLAB_PROJECT_PATH" | sed 's|/|%2F|g')
-RESULT=$(no_proxy="$GITLAB_HOST" curl -s -o /dev/null -w "%{http_code}" \
-  --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://${GITLAB_HOST}/api/v4/projects/${ENC_PATH}")
-
-if [[ "$RESULT" != "200" ]]; then
-  # 401 = token 无效/过期  404 = 仓库不存在或无权限
-  echo "❌ 仓库验证失败 (HTTP $RESULT)"
-  exit 1
-fi
-echo "✓ 仓库验证通过"
+bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
+  local \
+  --path "$LOCAL_PATH"
 ```
 
-验证失败 → 告知用户具体原因(401/404),停止配置,等用户修复后重试。
-验证通过 → 跳到 Step 4 写 config.json。
+如果目录不存在：
+
+```text
+❌ 目录不存在：<path>
+请先创建该目录，或改成一个已经存在并会被云盘同步的目录。
+```
 
 ---
 
-## Step 3(选 MinIO):收集配置
+## Step 2(GitHub): 收集配置
 
-先检查 mc 是否安装:
+依次问：
+
+1. GitHub Personal Access Token
+2. 仓库路径，格式 `owner/name`
+3. 分支名，默认 `main`，可直接回车跳过
+
+收齐后立刻验证并写入：
 
 ```bash
-if ! command -v mc &>/dev/null; then
-  echo "❌ 未找到 mc(MinIO 客户端),请先安装:"
-  echo "  Windows: scoop install mc  或  choco install minio-client"
-  echo "  macOS:   brew install minio/stable/mc"
-  echo "  Linux:   curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc && chmod +x mc"
-  exit 1
-fi
+bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
+  github \
+  --token "$GITHUB_TOKEN" \
+  --repo "$GITHUB_REPO" \
+  --branch "$GITHUB_BRANCH"
 ```
 
-mc 可用后,依次问:
-1. MinIO endpoint(例如 `https://minio.example.com`)
+验证失败时，明确报出 HTTP 状态码并停止，让用户修正后重试。
+
+---
+
+## Step 2(GitLab): 收集配置
+
+依次问：
+
+1. GitLab 主机，例如 `gitlab.com` 或 `your.gitlab.com`
+2. Personal Access Token
+3. 仓库路径，格式 `namespace/name`
+4. 分支名，默认 `main`，可直接回车跳过
+5. 协议，默认 `https`，通常无需改动
+
+收齐后立刻验证并写入：
+
+```bash
+bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
+  gitlab \
+  --host "$GITLAB_HOST" \
+  --token "$GITLAB_TOKEN" \
+  --project-path "$GITLAB_PROJECT_PATH" \
+  --branch "$GITLAB_BRANCH" \
+  --protocol "$GITLAB_PROTOCOL"
+```
+
+验证失败时，明确报出 HTTP 状态码并停止，让用户修正后重试。
+
+---
+
+## Step 2(MinIO): 收集配置
+
+先确认本机已安装 `mc`，再依次问：
+
+1. MinIO endpoint，例如 `https://minio.example.com`
 2. Access Key
 3. Secret Key
-4. Bucket 名称(**必须已存在**)
-5. Bucket 内前缀(例如 `workspaces/`,留空则存在根)
+4. Bucket 名称
+5. Bucket 前缀，默认 `workspaces/`
+6. `mc` alias，默认 `claude-workspace-sync`
 
-配置 alias 并验证 bucket:
+收齐后立刻验证并写入：
 
 ```bash
-MC_ALIAS="claude-workspace-sync"
-mc alias set "$MC_ALIAS" "$MINIO_ENDPOINT" "$MINIO_AK" "$MINIO_SK" --api S3v4
-
-if ! mc ls "$MC_ALIAS/$MINIO_BUCKET" &>/dev/null; then
-  echo "❌ Bucket '$MINIO_BUCKET' 不存在或无权限访问"
-  exit 1
-fi
-echo "✓ Bucket 验证通过"
+bash "$WS_SKILL_DIR/scripts/ws-config.sh" \
+  minio \
+  --endpoint "$MINIO_ENDPOINT" \
+  --access-key "$MINIO_ACCESS_KEY" \
+  --secret-key "$MINIO_SECRET_KEY" \
+  --bucket "$MINIO_BUCKET" \
+  --prefix "$MINIO_PREFIX" \
+  --mc-alias "$MINIO_MC_ALIAS"
 ```
 
-验证通过 → 跳到 Step 4 写 config.json。
+如果 `mc` 未安装，直接报错并给出安装提示；如果 bucket 不存在或无权限，也直接报错停止。
 
 ---
 
-## Step 4: 写入 config.json
+## Step 3: 保存成功后的收尾
 
-用 Write 工具更新 `<当前 CLI 状态目录>/skills/workspace-sync/config.json`,只写入相关字段,保留其他字段不变。
+配置脚本成功后，会返回当前生效的 `config.json` 路径。
 
-写入完成后输出:
+向用户输出：
 
+```text
+✓ 配置已保存。
 ```
-✓ 配置已保存。继续执行 /workspace-sync <原命令>...
-```
 
-然后继续原本用户请求的操作。
+如果本流程是从其他命令中途进入的，则继续执行原命令。
+如果这是用户主动执行 `/workspace-sync config`，则到此结束。

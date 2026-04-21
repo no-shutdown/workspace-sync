@@ -16,7 +16,7 @@ ws_backend_init() {
   [[ -f "$WS_CONFIG" ]] || { echo '{"error":"config not found"}'; exit 1; }
 
   WS_BACKEND="$(ws_get_json_string "$WS_CONFIG" "backend")"
-  [[ -n "$WS_BACKEND" ]] || { echo '{"error":"backend not configured, run /workspace-sync connect first"}'; exit 1; }
+  [[ -n "$WS_BACKEND" ]] || { echo '{"error":"backend not configured, run /workspace-sync config first"}'; exit 1; }
 
   WS_CACHE_DIR="$(ws_get_json_string "$WS_CONFIG" "cache_dir")"
   [[ -n "$WS_CACHE_DIR" ]] || WS_CACHE_DIR="$(ws_default_workspace_cache_dir "$WS_CONFIG")"
