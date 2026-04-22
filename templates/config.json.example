@@ -24,8 +24,5 @@
   },
   "cache_dir": null,
   "local_paths_file": null,
-  "scan_roots": [
-    "D:/work",
-    "D:/src"
-  ]
+  "scan_roots": []
 }

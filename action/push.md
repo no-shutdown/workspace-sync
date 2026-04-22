@@ -26,9 +26,9 @@
 2. 当前 cwd 所在 git 仓库
 3. 当前对话里最近实际改动过的仓库
 
-不要为了“自动检测”优先去跑复杂仓库脚本；如果不确定，就先把识别结果展示给用户确认。
+不要为了"自动检测"优先去跑复杂仓库脚本；如果不确定，就先把识别结果展示给用户确认。
 
-项目列表为空时，按“纯讨论模式”继续。
+项目列表为空时，按"纯讨论模式"继续。
 
 ### Step 3: 收集并校验每个项目的 git 指针
 
@@ -64,31 +64,38 @@
 
 - 保留历史背景与已确认决策
 - 追加本次新增讨论
-- 替换“进行中 / 下一步”为当前真实状态
+- 替换"进行中 / 下一步"为当前真实状态
 
-### Step 5: 生成 `manifest.json`
+### Step 5: 读取远端基线版本
+
+调用当前 backend 的 `read_version(WS_NAME)`，得到：
+
+- `CURRENT_REMOTE_VERSION`（workspace 不存在时为 `0`）
+- `CURRENT_REMOTE_CREATED_AT`（workspace 不存在时为空）
+
+后续步骤凭此计算 `NEXT_VERSION = CURRENT_REMOTE_VERSION + 1`。
+
+### Step 6: 生成 `manifest.json`
 
 至少写入：
 
 - `name`
-- `version`
-- `previous_version`
+- `version = NEXT_VERSION`
+- `previous_version = CURRENT_REMOTE_VERSION`
 - `conversation_id`
 - `source_device`
 - `source_cwd`
-- `created_at`
-- `updated_at`
+- `created_at`：首次 push 时 = now；更新已有 workspace 时保留 `CURRENT_REMOTE_CREATED_AT`
+- `updated_at = now`
 - `projects`
 - `skill_states`
 
-首次 `push` 时 `created_at=now`，后续更新保留远端已有的 `created_at`。
-
-### Step 6: 保存 `conversation.jsonl`
+### Step 7: 保存 `conversation.jsonl`
 
 如果当前环境能读到会话备份文件，就复制一份到 workspace。
 如果当前环境拿不到原始对话文件，也要继续保存 `summary.md` 和 `manifest.json`，但需要明确说明缺失了原始 `conversation.jsonl`。
 
-### Step 7: 导出 portable skill states
+### Step 8: 导出 portable skill states
 
 对本次涉及到的 skill：
 
@@ -99,19 +106,26 @@
 
 不要依赖 `workspace-sync` 仓库自己的 runner 脚本。
 
-### Step 8: 上传到 backend
+### Step 9: 组装 staging 目录
 
-按当前 backend 的参考实现执行：
+把 `summary.md`、`conversation.jsonl`（若有）、`manifest.json`、`projects/`、`skill-states/` 整理到一个临时 `STAGE_DIR`，准备上传。
+
+### Step 10: 并发校验
+
+再次调用 backend 的 `read_version(WS_NAME)`。
+
+如果远端版本已不等于 Step 5 读到的 `CURRENT_REMOTE_VERSION`，向用户说明冲突并确认是否继续。
+
+### Step 11: 上传到 backend
+
+调用当前 backend 的 `push(WS_NAME, STAGE_DIR, NEXT_VERSION)`：
 
 - Local: `references/local.md`
 - GitHub: `references/github.md`
 - GitLab: `references/gitlab.md`
 - MinIO: `references/minio.md`
 
-上传前先读取远端当前版本，生成 `next_version`。
-上传前再读一次远端版本；如果远端已变化，先告知用户并确认是否继续。
-
-### Step 9: 展示结果
+### Step 12: 展示结果
 
 至少汇报：
 

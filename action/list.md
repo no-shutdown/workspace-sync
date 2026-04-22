@@ -20,13 +20,15 @@
 
 ## 执行步骤
 
-### Step 1: 读取本地缓存
+### Step 1: 读取本地视图
 
-找到 `cache_dir`，遍历每个 workspace 目录下的 `manifest.json`，提取：
+按当前 backend 类型确定读取位置：
 
-- `name`
-- `version`
-- `updated_at`
+- **GitHub / GitLab**：遍历 `cache_dir` 下对应 clone 中的各 workspace 目录，读取 `manifest.json`
+- **Local**：遍历 `local.path` 下各子目录的 `manifest.json`（`local.path` 本身即主存储，无单独 clone 缓存）
+- **MinIO**：本地无缓存副本，直接跳到 Step 2 补查远端
+
+每条提取：`name`、`version`、`updated_at`。
 
 输出逻辑上的结果即可，不要求依赖仓库脚本。
 

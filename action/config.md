@@ -43,6 +43,8 @@
 
 ### Step 3: 更新 `config.json`
 
+写入前先备份：若文件已存在，执行 `cp "$CONFIG" "${CONFIG}.bak"`。
+
 写入要求：
 
 - 保留其他 backend 的备用配置

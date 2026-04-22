@@ -189,59 +189,21 @@ gitlab.yc.com/ukon/shanks-manage
 
 详细步骤见 `action/push.md`。
 
-额外约束：
-
-- 优先用当前对话上下文、当前 cwd、用户明确提到的仓库，推断本次 workspace 涉及的项目
-- 如果项目集合不确定，先把识别结果展示给用户确认，不要为了“自动检测”去调用复杂仓库脚本
-- 每个项目都要至少记录：`name`、`path`、`remote`、`branch`、`upstream`、`head`
-- 默认保守策略：
-  - 有未提交改动就停止
-  - 没有 upstream 就停止
-  - 本地与 upstream 不同步就停止
-- `summary.md` 不能只写“进度”，必须写出目标、讨论脉络、关键决策、当前停点和下一步
-
 ## pull
 
 详细步骤见 `action/pull.md`。
-
-额外约束：
-
-- 先比较本地缓存和远端版本，再决定是否下载
-- 本地缓存已经是最新时，可直接复用本地缓存
-- 恢复项目代码时，不强制覆盖本地脏工作区
-- 有 unresolved 项目路径时，优先用 `local-paths.json` 和 `scan_roots` 解决；仍不确定再问用户
-- 完成后必须把 `summary.md` 的关键信息重新呈现给用户，而不是只说“恢复成功”
 
 ## list
 
 详细步骤见 `action/list.md`。
 
-额外约束：
-
-- 默认只读本地缓存
-- 用户明确说“完整列表”“远端列表”“没看到想要的名字”时，再补查远端
-- 远端补查只允许列目录和读取 `manifest.json`，不要下载完整 workspace
-- 列出后立即引导用户选择一个继续恢复；只有用户明确表示“只是看看”时才停在列表
-
 ## config
 
 详细步骤见 `action/config.md`。
 
-额外约束：
-
-- `/workspace-sync config` 不是首次安装专用入口，而是长期存在的重配置入口
-- 只更新当前选中的 backend 字段和 `backend` 本身，其他字段保留
-- 写入前先验证，不写半成品配置
-
 ## clean
 
 详细步骤见 `action/clean.md`。
-
-额外约束：
-
-- 单个 workspace 使用普通确认
-- `clean --all` 必须要求更强确认
-- 删除 workspace 时同时清理本地缓存和待导入 skill-state 缓存
 
 ## Skill State 同步
 

@@ -21,7 +21,7 @@
 - workspace 不存在：`CURRENT_REMOTE_VERSION=0`，`CURRENT_REMOTE_CREATED_AT=""`
 - workspace 存在但 manifest 不可读：`exit 1`，不要静默返回 0
 
-此操作在 push 流程中调用两次：Step 6（基线）和 Step 11（并发校验）。
+此操作在 push 流程中调用两次：Step 5（基线读取）和 Step 10（并发校验）。
 
 ---
 
@@ -30,7 +30,7 @@
 将 `stage_dir` 的内容上传为远端 `ws_name`，覆盖已有版本。
 
 - 路径校验：确认 `ws_dir` 在允许的目录范围内，防止路径穿越
-- 并发控制由调用方（push-flow Step 11）负责；push 本身不做额外校验
+- 并发控制由调用方（push-flow Step 10）负责；push 本身不做额外校验
 - 失败时：打印原因，`exit 1`
 
 ---

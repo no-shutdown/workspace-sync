@@ -59,19 +59,6 @@ assert_safe_target() {
   esac
 }
 
-copy_file() {
-  local src="$1"
-  local dest="$2"
-
-  [[ -f "$src" ]] || {
-    echo "Source file not found: $src" >&2
-    exit 1
-  }
-
-  mkdir -p "$(dirname "$dest")"
-  cp "$src" "$dest"
-}
-
 normalize_target_path() {
   local path="$1"
   local drive
@@ -122,45 +109,19 @@ done
 TARGET_DIR="$(normalize_target_path "$TARGET_DIR")"
 assert_safe_target "$TARGET_DIR"
 
-mkdir -p "$TARGET_DIR/action"
-mkdir -p "$TARGET_DIR/docs"
-mkdir -p "$TARGET_DIR/references"
-mkdir -p "$TARGET_DIR/templates"
-mkdir -p "$TARGET_DIR/examples/sdd/scripts"
-
-copy_file "$SCRIPT_DIR/SKILL.md" "$TARGET_DIR/SKILL.md"
-copy_file "$SCRIPT_DIR/README.md" "$TARGET_DIR/README.md"
-copy_file "$SCRIPT_DIR/install.sh" "$TARGET_DIR/install.sh"
-copy_file "$SCRIPT_DIR/uninstall.sh" "$TARGET_DIR/uninstall.sh"
-
-copy_file "$SCRIPT_DIR/action/push.md" "$TARGET_DIR/action/push.md"
-copy_file "$SCRIPT_DIR/action/pull.md" "$TARGET_DIR/action/pull.md"
-copy_file "$SCRIPT_DIR/action/list.md" "$TARGET_DIR/action/list.md"
-copy_file "$SCRIPT_DIR/action/config.md" "$TARGET_DIR/action/config.md"
-copy_file "$SCRIPT_DIR/action/clean.md" "$TARGET_DIR/action/clean.md"
-
-copy_file "$SCRIPT_DIR/docs/skill-state-contract.md" "$TARGET_DIR/docs/skill-state-contract.md"
-
-copy_file "$SCRIPT_DIR/references/backend-interface.md" "$TARGET_DIR/references/backend-interface.md"
-copy_file "$SCRIPT_DIR/references/github.md" "$TARGET_DIR/references/github.md"
-copy_file "$SCRIPT_DIR/references/gitlab.md" "$TARGET_DIR/references/gitlab.md"
-copy_file "$SCRIPT_DIR/references/local.md" "$TARGET_DIR/references/local.md"
-copy_file "$SCRIPT_DIR/references/minio.md" "$TARGET_DIR/references/minio.md"
-copy_file "$SCRIPT_DIR/references/setup.md" "$TARGET_DIR/references/setup.md"
-
-copy_file "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/templates/config.json.example"
-copy_file "$SCRIPT_DIR/templates/workspace-sync.contract.example.json" "$TARGET_DIR/templates/workspace-sync.contract.example.json"
-
-copy_file "$SCRIPT_DIR/examples/sdd/workspace-sync.contract.json" "$TARGET_DIR/examples/sdd/workspace-sync.contract.json"
-copy_file "$SCRIPT_DIR/examples/sdd/scripts/export-workspace-state.sh" "$TARGET_DIR/examples/sdd/scripts/export-workspace-state.sh"
-copy_file "$SCRIPT_DIR/examples/sdd/scripts/import-workspace-state.sh" "$TARGET_DIR/examples/sdd/scripts/import-workspace-state.sh"
+# Copy all source files (excluding .git), preserving directory structure.
+# New files added to the repo are automatically picked up on next install.
+while IFS= read -r f; do
+  dest="$TARGET_DIR/$f"
+  mkdir -p "$(dirname "$dest")"
+  cp -- "$SCRIPT_DIR/$f" "$dest"
+done < <(cd "$SCRIPT_DIR" && find . -not -path './.git/*' -not -name '.gitignore' -type f | sed 's|^\./||' | sort)
 
 chmod +x "$TARGET_DIR/install.sh" "$TARGET_DIR/uninstall.sh"
-chmod +x "$TARGET_DIR/examples/sdd/scripts/export-workspace-state.sh"
-chmod +x "$TARGET_DIR/examples/sdd/scripts/import-workspace-state.sh"
+find "$TARGET_DIR/examples" -name '*.sh' -exec chmod +x {} \;
 
 if [[ "$INIT_CONFIG" == "1" && ! -f "$TARGET_DIR/config.json" ]]; then
-  copy_file "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/config.json"
+  cp "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/config.json"
 fi
 
 cat <<EOF

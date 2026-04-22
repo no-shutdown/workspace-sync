@@ -19,16 +19,12 @@
 ## connect
 
 ```bash
-LOCAL_PATH=$(python3 -c "
-import json
-d = json.load(open('$CONFIG'))
-print((d.get('local') or {}).get('path') or '')
-" 2>/dev/null)
+LOCAL_PATH=$(jq -r '.local.path // ""' "$CONFIG" 2>/dev/null || echo "")
 LOCAL_PATH="${LOCAL_PATH/#\~/$HOME}"
 
-[[ -n "$LOCAL_PATH" ]] || { echo "❌ local.path 未配置"; exit 1; }
+[[ -n "$LOCAL_PATH" ]] || { echo "local.path 未配置"; exit 1; }
 [[ -d "$LOCAL_PATH" ]] || {
-  echo "❌ 目录不存在: $LOCAL_PATH"
+  echo "目录不存在: $LOCAL_PATH"
   echo "   请先创建该目录，或将其指向云盘已同步的文件夹"
   exit 1
 }
@@ -36,22 +32,16 @@ LOCAL_PATH="${LOCAL_PATH/#\~/$HOME}"
 
 ## read_version
 
+在 push 的基线读取（Step 5）和并发校验（Step 10）时调用：
+
 ```bash
 MANIFEST="$LOCAL_PATH/$WS_NAME/manifest.json"
 CURRENT_REMOTE_VERSION=0
 CURRENT_REMOTE_CREATED_AT=""
 
 if [[ -f "$MANIFEST" ]]; then
-  CURRENT_REMOTE_VERSION=$(python3 -c "
-import json
-d = json.load(open('$MANIFEST'))
-print(d.get('version') or 0)
-" 2>/dev/null || echo 0)
-  CURRENT_REMOTE_CREATED_AT=$(python3 -c "
-import json
-d = json.load(open('$MANIFEST'))
-print(d.get('created_at') or '')
-" 2>/dev/null || echo "")
+  CURRENT_REMOTE_VERSION=$(jq -r '.version // 0' "$MANIFEST" 2>/dev/null || echo 0)
+  CURRENT_REMOTE_CREATED_AT=$(jq -r '.created_at // ""' "$MANIFEST" 2>/dev/null || echo "")
 fi
 ```
 
@@ -59,7 +49,7 @@ fi
 
 ```bash
 WS_DIR="$LOCAL_PATH/$WS_NAME"
-[[ "$WS_DIR" == "$LOCAL_PATH/"* ]] || { echo "❌ 非法 workspace 路径"; exit 1; }
+[[ "$WS_DIR" == "$LOCAL_PATH/"* ]] || { echo "非法 workspace 路径"; exit 1; }
 rm -rf -- "$WS_DIR"
 mkdir -p "$WS_DIR"
 cp -r "$STAGE_DIR"/* "$WS_DIR/"
@@ -69,28 +59,23 @@ cp -r "$STAGE_DIR"/* "$WS_DIR/"
 
 ```bash
 WS_DIR="$LOCAL_PATH/$WS_NAME"
-[[ -d "$WS_DIR" ]] || { echo "❌ 工作空间 $WS_NAME 不存在"; exit 1; }
+[[ -d "$WS_DIR" ]] || { echo "工作空间 $WS_NAME 不存在"; exit 1; }
 cp -r "$WS_DIR"/* "$STAGE_DIR/"
 ```
 
 ## list
 
+注意：Local backend 的 `local.path` 本身就是主存储，没有单独的本地 clone 缓存，不需要补查远端。
+
 ```bash
 for WS_ENTRY in "$LOCAL_PATH"/*/; do
   [[ -d "$WS_ENTRY" ]] || continue
   WS="${WS_ENTRY%/}"; WS="${WS##*/}"
-  [[ -f "$LOCAL_PATH/$WS/manifest.json" ]] || continue
+  MANIFEST="$LOCAL_PATH/$WS/manifest.json"
+  [[ -f "$MANIFEST" ]] || continue
 
-  VERSION=$(python3 -c "
-import json
-d = json.load(open('$LOCAL_PATH/$WS/manifest.json'))
-print(d.get('version') or '-')
-" 2>/dev/null || echo "-")
-  UPDATED_AT=$(python3 -c "
-import json
-d = json.load(open('$LOCAL_PATH/$WS/manifest.json'))
-print(d.get('updated_at') or '-')
-" 2>/dev/null || echo "-")
+  VERSION=$(jq -r '.version // "-"' "$MANIFEST" 2>/dev/null || echo "-")
+  UPDATED_AT=$(jq -r '.updated_at // "-"' "$MANIFEST" 2>/dev/null || echo "-")
 
   echo "$WS|$VERSION|$UPDATED_AT"
 done
@@ -108,7 +93,7 @@ if [[ "$WS_NAME" == "--all" ]]; then
   done
 else
   WS_DIR="$LOCAL_PATH/$WS_NAME"
-  [[ "$WS_DIR" == "$LOCAL_PATH/"* ]] || { echo "❌ 非法路径"; exit 1; }
+  [[ "$WS_DIR" == "$LOCAL_PATH/"* ]] || { echo "非法路径"; exit 1; }
   [[ -d "$WS_DIR" ]] || { echo "nothing to clean: $WS_NAME"; exit 0; }
   rm -rf -- "$WS_DIR"
 fi
