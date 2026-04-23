@@ -11,10 +11,17 @@
 ## 这个 skill 同步什么
 
 - `summary.md`
-- `conversation.jsonl`
+- `conversation.jsonl`（完整对话）
 - 工作空间 `manifest.json`
 - 涉及项目的 `remote / upstream / branch / head`
 - 其他 skill 明确声明为 `portable` 的状态
+
+默认要求同时保留“完整对话 + 可接手摘要”：
+
+- `conversation.jsonl`：历史细节与原始上下文
+- `summary.md`：给未参与对话的人快速接手
+
+如果拿不到完整对话，默认应停止 `push`；只有用户明确同意降级保存时才继续，并在 `manifest.json` 里标记降级状态。
 
 ## 这个 skill 不同步什么
 

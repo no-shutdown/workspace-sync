@@ -37,7 +37,12 @@
 
 - `manifest.json`
 - `summary.md`
-- `conversation.jsonl`（若存在）
+- `conversation.jsonl`（默认应存在）
+
+一致性校验：
+
+- 若 `manifest.conversation_saved=true` 但 `conversation.jsonl` 缺失，标记为远端数据不一致并提示用户重新 `push`
+- 若 `manifest.conversation_saved=false`，明确标记为“降级 workspace”，告知上下文完整性受限
 
 ### Step 4: 恢复项目代码位置
 
@@ -77,7 +82,7 @@
 
 ### Step 6: 重新呈现上下文
 
-不要只说“恢复成功”，必须把 `summary.md` 中最重要的信息重新讲给用户：
+不要只说“恢复成功”，必须基于 `summary.md` 和 `conversation.jsonl` 重新讲给用户：
 
 - 整体目标
 - 背景与约束
@@ -85,6 +90,12 @@
 - 关键决策
 - 每个项目的当前停点
 - 下一步最具体动作
+
+如果 `conversation.jsonl` 缺失：
+
+- 明确告知当前恢复为降级模式
+- 提示用户该摘要可能遗漏历史细节
+- 建议在源设备重新执行一次包含完整对话的 `push`
 
 如果某些项目因为本地脏工作区、路径未解析或 `HEAD` 缺失而未恢复完整，必须明确提示：
 

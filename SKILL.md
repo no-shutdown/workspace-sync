@@ -12,13 +12,14 @@ description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 g
 - 只有当其他 skill 自己的 `workspace-sync.contract.json` 明确声明了 `export_command` / `import_command` 时，才调用**那个 skill 自己**的脚本。
 - `list` 优先本地缓存，远端只做轻量补查。
 - `push` / `pull` 的目标是恢复上下文和已提交代码指针，不搬运本地未提交改动。
+- 默认要求同时保留：`conversation.jsonl`（完整对话）+ `summary.md`（可接手上下文）。缺失完整对话只能在用户明确同意降级时继续。
 
 ## 同步边界
 
 会同步：
 
 - `summary.md`
-- `conversation.jsonl`
+- `conversation.jsonl`（完整对话）
 - `manifest.json`
 - 每个项目的 `remote / upstream / branch / head`
 - 其他 skill 显式声明为 `portable` 的状态
@@ -122,9 +123,16 @@ description: 跨设备同步 Claude Code 工作空间(对话摘要 + 涉及的 g
   "created_at": "2026-04-15T18:00:00+08:00",
   "updated_at": "2026-04-17T10:30:00+08:00",
   "projects": [],
-  "skill_states": []
+  "skill_states": [],
+  "conversation_saved": true,
+  "conversation_status": "full"
 }
 ```
+
+其中：
+
+- `conversation_saved`: 是否保存了完整 `conversation.jsonl`
+- `conversation_status`: `full|missing_by_env|missing_by_user_opt_in`
 
 ## workspace 名称校验
 

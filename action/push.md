@@ -51,19 +51,27 @@
 
 ### Step 4: 生成 `summary.md`
 
-`summary.md` 必须让另一个从未参与当前对话的人也能接上工作，至少写出：
+`summary.md` 必须让另一个从未参与当前对话的人也能接上工作，且必须包含以下固定章节：
 
-- 整体目标
-- 背景与约束
-- 讨论脉络
-- 关键决策
-- 每个项目当前停点
-- 下一步最具体的动作
+1. 整体目标与验收标准
+2. 背景、约束与风险边界
+3. 讨论脉络（按时间顺序）
+4. 关键决策（含备选方案和放弃原因）
+5. 每个项目当前停点（分支、HEAD、已完成、进行中、阻塞）
+6. 未决问题与待确认事项
+7. 下一步最具体动作（可直接执行）
+
+质量门槛（默认强制）：
+
+- 纯讨论模式：不少于 `60` 行有效内容
+- 涉及项目模式：不少于 `100` 行有效内容
+- “下一步最具体动作”必须至少包含 `1` 条可直接执行的命令或文件级操作
+- 不允许只写笼统结论；每个章节都要有可验证的事实或决定
 
 如果这是更新已有 workspace：
 
 - 保留历史背景与已确认决策
-- 追加本次新增讨论
+- 追加本次新增讨论（按时间顺序）
 - 替换"进行中 / 下一步"为当前真实状态
 
 ### Step 5: 读取远端基线版本
@@ -89,11 +97,22 @@
 - `updated_at = now`
 - `projects`
 - `skill_states`
+- `conversation_saved`：`true|false`
+- `conversation_status`：`full|missing_by_env|missing_by_user_opt_in`
 
 ### Step 7: 保存 `conversation.jsonl`
 
-如果当前环境能读到会话备份文件，就复制一份到 workspace。
-如果当前环境拿不到原始对话文件，也要继续保存 `summary.md` 和 `manifest.json`，但需要明确说明缺失了原始 `conversation.jsonl`。
+默认要求保存完整对话文件 `conversation.jsonl`：
+
+- 能读取会话备份文件时，必须复制完整文件到 workspace
+- 读取失败时，默认停止 `push`，并向用户说明失败原因
+- 仅当用户明确接受“降级保存（无完整对话）”时，才允许继续
+
+降级保存时必须同时满足：
+
+- `manifest.json` 标记 `conversation_saved=false`
+- `manifest.json` 标记 `conversation_status=missing_by_user_opt_in`
+- `summary.md` 顶部显式声明“本版本缺失完整对话文件，仅供临时交接”
 
 ### Step 8: 导出 portable skill states
 
@@ -108,7 +127,8 @@
 
 ### Step 9: 组装 staging 目录
 
-把 `summary.md`、`conversation.jsonl`（若有）、`manifest.json`、`projects/`、`skill-states/` 整理到一个临时 `STAGE_DIR`，准备上传。
+把 `summary.md`、`manifest.json`、`projects/`、`skill-states/` 整理到一个临时 `STAGE_DIR`，准备上传。
+`conversation.jsonl` 默认必须存在；只有在 Step 7 明确进入降级保存时才允许缺失。
 
 ### Step 10: 并发校验
 
@@ -133,7 +153,7 @@
 - backend
 - 版本号
 - 涉及项目数
-- `conversation.jsonl` 是否成功保存
+- `conversation.jsonl` 是否成功保存（是否为降级保存）
 - skill-state 导出结果
 
 并提醒用户在另一台设备执行：
