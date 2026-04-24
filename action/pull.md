@@ -82,14 +82,26 @@
 
 ### Step 6: 重新呈现上下文
 
-不要只说“恢复成功”，必须基于 `summary.md` 和 `conversation.jsonl` 重新讲给用户：
+不要只说”恢复成功”。必须分两层呈现，让用户同时看到当前 workspace 的细节和更大 Epic 的全貌。
 
-- 整体目标
+**微观层（本 workspace 内）**，基于 `summary.md`：
+
+- 整体目标与验收标准
 - 背景与约束
-- 讨论脉络
 - 关键决策
-- 每个项目的当前停点
-- 下一步最具体动作
+- 每个项目的当前停点（分支、HEAD、代码状态）
+- 未决问题
+
+**宏观层（Epic 全景）**，基于 `summary.md` 章节 8：
+
+- 本 workspace 在 Epic 中的位置
+- Epic 已完成 vs 待完成的任务列表
+- 完成本 workspace 后建议的下一个 workspace 或 task
+
+如果 `summary.md` 缺少宏观层（章节 8 为空或不存在）：
+
+- 主动通过 issue tracker 补全（有 GitLab/GitHub 配置时自动查询；否则明确提示用户补充）
+- 告知用户”当前 summary 缺少 Epic 全景，建议在本次工作结束后 push 时补全章节 8”
 
 如果 `conversation.jsonl` 缺失：
 
@@ -104,4 +116,7 @@
 
 ### Step 7: 给出衔接动作
 
-根据 `summary.md` 的“下一步”，主动提出一个具体衔接动作，不要要求用户再手打一遍 `/workspace-sync` 命令。
+衔接动作需覆盖两个层次，不要要求用户再手打一遍 `/workspace-sync` 命令：
+
+- **立即可做**：根据 `summary.md` 章节 7 的”微观下一步”，给出一个具体的衔接命令或操作
+- **完成后下一步**：根据 `summary.md` 章节 8 的”Epic 待完成”，说明本 workspace 全部验收后应该开始的下一个 task 是什么
