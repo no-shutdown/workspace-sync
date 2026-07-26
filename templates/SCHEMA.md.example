@@ -1,0 +1,44 @@
+# Personal Development Knowledge Base Schema
+
+## Boundaries
+
+- The repository is one Obsidian Vault.
+- Each top-level workspace folder is one isolated development iteration.
+- Semantic Wiki links may point only inside the current workspace.
+- raw Markdown is free-form input and is never overwritten by compile.
+- overview.md and index.md are generated pages.
+- log.md is append-only.
+
+## Node types
+
+- project
+- system
+- capability
+- gap
+- integration
+- task
+- decision
+
+## Task statuses
+
+- 待开始
+- 进行中
+- 已阻塞
+- 已完成
+- 已取消
+
+## Relation syntax
+
+Use a relation label followed by a Wiki link in the node body:
+
+~~~md
+- 解决：[[gap-example]]
+- 依赖：[[task-example]]
+- 关联项目：[[project-example]]
+~~~
+
+YAML stores identity, type, status, timestamps and source references; it does not duplicate graph relations.
+
+## Candidate policy
+
+Candidates are suggestions, not formal nodes. User confirmation creates a new formal node and preserves the candidate page as history.

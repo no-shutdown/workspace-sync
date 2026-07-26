@@ -1,28 +1,11 @@
 {
-  "backend": "local",
-  "local": {
-    "path": "~/Dropbox/claude-workspaces"
+  "repository": {
+    "url": "git@gitlab.example.com:your-name/dev-knowledge.git",
+    "branch": "main",
+    "path": "C:/Users/your-name/Obsidian/dev-knowledge"
   },
-  "github": {
-    "token": "ghp_xxxxxxxxxxxx",
-    "repo": "your-username/claude-workspaces",
-    "branch": "main"
+  "obsidian": {
+    "vault": "dev-knowledge"
   },
-  "gitlab": {
-    "host": "gitlab.com",
-    "token": "<your-personal-access-token>",
-    "project_path": "<namespace>/<repo-name>",
-    "branch": "main"
-  },
-  "minio": {
-    "endpoint": "https://<your-minio-endpoint>",
-    "access_key": "<your-access-key>",
-    "secret_key": "<your-secret-key>",
-    "bucket": "<your-bucket-name>",
-    "prefix": "workspaces/",
-    "mc_alias": "claude-workspace-sync"
-  },
-  "cache_dir": null,
-  "local_paths_file": null,
-  "scan_roots": []
+  "state_file": null
 }

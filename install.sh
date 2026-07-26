@@ -118,7 +118,6 @@ while IFS= read -r f; do
 done < <(cd "$SCRIPT_DIR" && find . -not -path './.git/*' -not -name '.gitignore' -type f | sed 's|^\./||' | sort)
 
 chmod +x "$TARGET_DIR/install.sh" "$TARGET_DIR/uninstall.sh"
-find "$TARGET_DIR/examples" -name '*.sh' -exec chmod +x {} \;
 
 if [[ "$INIT_CONFIG" == "1" && ! -f "$TARGET_DIR/config.json" ]]; then
   cp "$SCRIPT_DIR/templates/config.json.example" "$TARGET_DIR/config.json"
@@ -135,9 +134,8 @@ Files:
   $TARGET_DIR/docs/
   $TARGET_DIR/references/
   $TARGET_DIR/templates/
-  $TARGET_DIR/examples/sdd/
 
 Next steps:
-  1. Review $TARGET_DIR/config.json
-  2. Start your CLI and run /workspace-sync push <name>
+  1. Configure one personal knowledge-base Git repository with /workspace-sync config
+  2. Start your CLI and run /workspace-sync pull to select or create a workspace
 EOF

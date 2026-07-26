@@ -2,54 +2,52 @@
 
 ## 命令
 
-```bash
+```text
 /workspace-sync config
 ```
 
 ## 目标
 
-重新配置当前生效的 `config.json`，并保留无关字段。
+配置一个个人开发知识库 Git 仓库，并把它作为本地 Obsidian Vault。配置不创建第二套 workspace 存储，也不保存 Git token。
 
-## 执行原则
+## 配置字段
 
-- 只要用户明确提到重配 backend、token、bucket、本地目录，就进入本流程
-- 即使当前配置完整，也允许重配
-- 提问顺序复用 `references/setup.md`
-- 不要一次性把所有问题抛给用户
-- 先验证，再写入
-- 只更新当前 backend 对应字段和 `backend`
+```json
+{
+  "repository": {
+    "url": "git@gitlab.example.com:me/dev-knowledge.git",
+    "branch": "main",
+    "path": "C:/Users/me/Obsidian/dev-knowledge"
+  },
+  "obsidian": {
+    "vault": "dev-knowledge"
+  },
+  "state_file": null
+}
+```
 
-## 执行步骤
+逐项询问：
 
-### Step 1: 按 `references/setup.md` 逐项提问
+1. 知识库 Git 仓库链接。
+2. 分支名，默认 `main`。
+3. 本机 clone/Vault 路径。
+4. Obsidian Vault 名称（如果 CLI 通过路径定位，也记录可读名称）。
 
-按 backend 分支逐项收集参数：
+不要询问或写入 token；使用用户已经配置好的 SSH、Git Credential Manager 或其他 Git 认证方式。
 
-- Local: 本地目录
-- GitHub: token / repo / branch
-- GitLab: host / token / project_path / branch / protocol
-- MinIO: endpoint / access_key / secret_key / bucket / prefix / mc_alias
+## 验证顺序
 
-### Step 2: 即时验证
+1. 检查 Git URL 非空、分支名合法、路径不是危险目录。
+2. 如果本地路径已有 Git 仓库，确认其 remote 与配置 URL 指向同一知识库；不匹配时停止并要求用户选择新路径或重新配置。
+3. 如果本地路径不存在，创建父目录并 clone 已存在的知识库仓库；不要自动创建远端项目。
+4. 如果仓库为空，初始化根 `SCHEMA.md` 和 Git 提交；如果仓库已有内容，确认根结构可读。
+5. 检查 Obsidian CLI 可调用且能够定位该 Vault。CLI 不可用时报告安装/启动问题，不使用第二套 Vault 文件接口。
 
-直接用标准命令或 API 验证：
+验证失败不写入新的配置值。
 
-- Local: 目录是否存在
-- GitHub: 仓库是否存在且 token 可访问
-- GitLab: API 是否能读到目标项目
-- MinIO: `mc` 是否可用，bucket 是否存在
+## 写入与收尾
 
-验证失败立即停止，不写配置。
-
-### Step 3: 更新 `config.json`
-
-写入前先备份：若文件已存在，执行 `cp "$CONFIG" "${CONFIG}.bak"`。
-
-写入要求：
-
-- 保留其他 backend 的备用配置
-- 保留 `scan_roots`、`cache_dir`、`local_paths_file`
-- 只替换当前选中 backend 的字段
-
-如果这是用户显式执行的 `/workspace-sync config`，写完后汇报生效路径并结束。
-如果是其他命令中途缺配置触发的，写完后继续原命令。
+- 只更新 `config.json` 的知识库连接和本机 Vault 信息。
+- `current_workspace_id`、`current_workspace_name` 和项目本地路径写入本地 `state_file`，不能写入 Git 仓库。
+- 已有配置先保留备份，再替换经过验证的字段。
+- 成功后展示配置生效路径，并提示执行 `/workspace-sync pull` 或 `/workspace-sync list` 选择 workspace。

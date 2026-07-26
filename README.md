@@ -1,168 +1,95 @@
 # workspace-sync
 
-一个用于 Claude Code / Codex 类 CLI 的 workspace 同步 skill，用来在多台设备之间恢复工作上下文。
+`workspace-sync` 是一个个人开发知识库 skill：把开发迭代、任务、系统能力、能力缺口、联调点、技术决策和代码项目现场组织成可被人和 AI 共同使用的 Obsidian Markdown 图谱。
 
-当前版本的设计重点是：
+知识库由用户配置的一个 Git 仓库承载。仓库本身就是 Obsidian Vault；其中每个顶层文件夹都是一个独立 workspace，也就是一个开发迭代。一个 workspace 可以同时关联多个代码项目，不与任何单一项目一一绑定。
 
-- 同步上下文，而不是搬运脏代码
-- 让模型按文档直接执行，而不是依赖一堆仓库内脚本
-- skill-state 优先走 `sync_paths`，只有确实需要时才保留自定义脚本
+## 核心体验
 
-## 这个 skill 同步什么
-
-- `summary.md`
-- `conversation.jsonl`（完整对话）
-- 工作空间 `manifest.json`
-- 涉及项目的 `remote / upstream / branch / head`
-- 其他 skill 明确声明为 `portable` 的状态
-
-默认要求同时保留“完整对话 + 可接手摘要”：
-
-- `conversation.jsonl`：历史细节与原始上下文
-- `summary.md`：给未参与对话的人快速接手
-
-如果拿不到完整对话，默认应停止 `push`；只有用户明确同意降级保存时才继续，并在 `manifest.json` 里标记降级状态。
-
-## 这个 skill 不同步什么
-
-- 本地未提交改动
-- 已提交但未 push 的提交
-- `.gitignore` 忽略文件
-- 设备绑定缓存、锁、tmp、daemon 状态
-- 未声明或声明为 `nonportable` 的 skill 状态
-
-## 典型命令
-
-```bash
-/workspace-sync push feature-x
-/workspace-sync pull feature-x
-/workspace-sync list
-/workspace-sync config
-/workspace-sync clean feature-x
-```
-
-## 现在的实现方式
-
-这个仓库不再把运行时逻辑堆在根目录 `scripts/` 里。
-
-模型执行 `push / pull / list / config / clean` 时，应直接依据：
-
-- [SKILL.md](./SKILL.md)
-- [`action/push.md`](./action/push.md)
-- [`action/pull.md`](./action/pull.md)
-- [`action/list.md`](./action/list.md)
-- [`action/config.md`](./action/config.md)
-- [`action/clean.md`](./action/clean.md)
-- [`references/`](./references/)
-
-也就是说：
-
-- 常规 git / 文件系统 / HTTP API / `mc` 操作直接做
-- 不依赖仓库自带辅助脚本
-- 遇到环境差异时，优先切回更直接的等价实现
-
-## 当前边界
-
-为了避免“上下文恢复了，但代码现场其实不一致”的误导，默认采用保守规则：
-
-- `push` 前项目必须干净
-- 当前分支必须有 upstream
-- 本地与 upstream 必须同步
-- 不满足任一条件时，停止 `push`
-
-推荐日常流程：
-
-1. 在当前设备把相关项目提交并 push
-2. 执行 `/workspace-sync push <name>`
-3. 在另一台设备执行 `/workspace-sync pull <name>`
-4. 继续工作
-
-## 配置
-
-安装后默认配置路径：
+规划阶段可以使用 superpowers、grill-with-docs 或其他方式产生自由格式 raw Markdown。规划结束后，在 AI 对话中执行一行：
 
 ```text
-<当前 CLI 状态目录>/skills/workspace-sync/config.json
+/workspace-sync compile
 ```
 
-示例见 [`templates/config.json.example`](./templates/config.json.example)。
+如果已有 raw，compile 会将其增量整理成 Wiki 节点和开发图谱；如果没有 raw，但当前会话已经明确确认了开发任务，compile 会先生成 raw，再继续编译。原始资料保留，Wiki 由 LLM 持续维护，`overview.md` 和 `index.md` 自动生成。
 
-支持四种 backend：
+## 命令
 
-- Local
-- GitHub
-- GitLab
-- MinIO
+```text
+/workspace-sync config
+/workspace-sync pull [workspace-name]
+/workspace-sync list
+/workspace-sync compile
+/workspace-sync push
+```
 
-配置流程见 [`references/setup.md`](./references/setup.md)。
+- `config`：配置个人开发知识库 Git 仓库。
+- `pull`：同步仓库、选择/恢复 workspace，并打开接手入口。
+- `list`：列出本地 workspace，选择后设置当前 workspace；不自动同步远端。
+- `compile`：把当前 workspace 的 raw 或已确认会话结论编译成开发图谱。
+- `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端。
+
+每次涉及知识库事实的工作都必须先有当前 workspace。没有时会要求输入名称并新建；不自动猜测，也不跨 workspace 读取。
 
 ## 仓库结构
 
 ```text
-workspace-sync/
-├── SKILL.md
-├── README.md
-├── action/
-│   ├── clean.md
-│   ├── config.md
-│   ├── list.md
-│   ├── pull.md
-│   └── push.md
-├── docs/
-│   └── skill-state-contract.md
-├── examples/
-│   └── sdd/
-│       ├── workspace-sync.contract.json
-│       └── scripts/
-├── references/
-│   ├── backend-interface.md
-│   ├── github.md
-│   ├── gitlab.md
-│   ├── local.md
-│   ├── minio.md
-│   └── setup.md
-├── templates/
-│   ├── config.json.example
-│   └── workspace-sync.contract.example.json
-├── install.sh
-└── uninstall.sh
+knowledge-base/
+├── SCHEMA.md
+└── <workspace-name>/
+    ├── workspace.md
+    ├── raw/
+    │   └── *.md
+    └── wiki/
+        ├── overview.md
+        ├── index.md
+        ├── log.md
+        ├── nodes/
+        │   ├── projects/
+        │   ├── systems/
+        │   ├── capabilities/
+        │   ├── gaps/
+        │   ├── integrations/
+        │   ├── tasks/
+        │   └── decisions/
+        └── candidates/
 ```
 
-说明：
+raw 是不可覆盖的自由格式输入；节点页面是正式图谱事实；候选页面等待用户确认；`overview.md`、`index.md` 是可重建的生成视图；`log.md` 是追加式操作记录。
 
-- 根目录不再提供运行时 `scripts/`
-- `examples/sdd/scripts/` 只是给其他 skill 的自定义导出/导入脚本示例
-- `templates/workspace-sync.contract.example.json` 默认示范 `sync_paths` 写法
+## 图谱模型
 
-## skill-state contract
+图谱不是严格任务树。节点类型包括：
 
-文档见 [`docs/skill-state-contract.md`](./docs/skill-state-contract.md)。
+- 项目、系统、能力
+- 能力缺口、联调点
+- 任务、技术决策
 
-当前建议：
+关系使用正文中的语义 Wiki 链接，例如：
 
-1. 优先用 `sync_paths`
-2. 只有确实需要路径转换、重建索引、schema 迁移时，才给 skill 自己写 `export_command` / `import_command`
-3. `workspace-sync` 本身只负责编排，不理解目标 skill 的私有格式
-
-一个 `sync_paths` 示例：
-
-```json
-{
-  "contract_version": 1,
-  "skill": "example-skill",
-  "states": [
-    {
-      "name": "project-state",
-      "scope": "project",
-      "portability": "portable",
-      "sync_paths": [
-        ".example/specs",
-        ".example/current.json"
-      ]
-    }
-  ]
-}
+```md
+- 缺少：[[gap-user-import]]
+- 需要联调：[[integration-order-api]]
+- 依赖：[[task-auth-refactor]]
 ```
+
+任务可以通过“分解为”形成树形视图，但依赖、项目关联和系统协作关系可以跨越树层级。正式任务状态为：待开始、进行中、已阻塞、已完成、已取消。
+
+## Git 与代码项目边界
+
+知识库 Git 仓库只保存 Markdown、Schema 和审计记录，不保存代码副本。workspace 会记录关联项目的规范化 remote、分支、HEAD 和 dirty 状态，帮助换设备后恢复代码现场。
+
+- dirty 代码项目不会阻止知识库保存，但不会复制未提交内容。
+- push 只提交当前 workspace；其他 workspace 和根 `SCHEMA.md` 的变更会被提示。
+- pull 不强制覆盖 dirty 代码项目。
+- Git 冲突停止处理，禁止 force push。
+
+## Obsidian CLI
+
+Vault 内 Markdown 的读取、创建、修改、搜索、链接查询和打开统一通过官方 Obsidian CLI；workspace-sync 不维护第二套图数据库或 Vault API。Git 只负责 clone、fetch、rebase、commit 和 push。
+
+详细运行契约见 [`SKILL.md`](./SKILL.md)，命令流程见 [`action/`](./action/)，仓库和 CLI 约定见 [`references/`](./references/)。
 
 ## 安装
 
@@ -172,16 +99,16 @@ cd workspace-sync
 ./install.sh
 ```
 
-默认会安装到当前 CLI 状态目录下的：
+安装后配置：
 
 ```text
-<state-root>/skills/workspace-sync
+/workspace-sync config
 ```
 
-首次安装且目标目录没有 `config.json` 时，会自动从模板初始化一份。
+然后选择或创建当前 workspace：
 
-## 卸载
-
-```bash
-./uninstall.sh
+```text
+/workspace-sync pull
 ```
+
+安装脚本只安装 skill 文件，不创建或复制个人开发知识库内容。

@@ -2,121 +2,71 @@
 
 ## 命令
 
-```bash
-/workspace-sync pull <workspace-name>
+```text
+/workspace-sync pull [workspace-name]
 ```
 
 ## 目标
 
-下载并恢复指定 workspace，同时把摘要重新呈现给用户，便于立即继续工作。
+同步唯一的个人开发知识库 Git 仓库，并选择一个 workspace 作为本机当前工作空间。`pull` 不复制出 workspace 快照；本地 clone 本身就是 Obsidian Vault。
 
-## 执行步骤
+## 步骤
 
-### Step 1: 校验名称与配置
+### 1. 检查本地知识库现场
 
-- 按 `SKILL.md` 的 `validate_ws_name` 校验 `WS_NAME`
-- 读取当前生效 `config.json`
-- 配置缺失时，转入 `references/setup.md`
+- 读取 `config.json`，缺失时进入 `action/config.md`。
+- 确认本地 Vault 路径对应配置的知识库 remote。
+- 使用 Git 检查工作树；若存在未提交知识库变更，停止并要求用户先 commit、push 或明确处理，不能覆盖。
 
-### Step 2: 先比较本地缓存与远端
+### 2. 同步 Git 仓库
 
-优先读取本地缓存的 `manifest.json`。
-如果 backend 支持轻量远端查询，再读取远端 `manifest.json` 的 `version` / `updated_at`。
+- fetch 配置分支。
+- 本地无未提交变更时，使用安全的 fast-forward 或明确的 rebase/merge 流程整合远端。
+- 如果本地和远端无法自动整合，停止并报告冲突文件；禁止 force reset、force push 或静默丢弃本地 Wiki。
+- 同步的是整个知识库仓库，但后续上下文只加载用户选定的 workspace。
 
-决策规则：
+### 3. 选择 workspace
 
-- 本地无、远端有：下载远端
-- 本地有、远端无：从本地缓存恢复，并明确说明是 `local_only`
-- 本地和远端都有，远端更新：下载远端
-- 本地和远端都有，本地相同或更新：优先保守处理，先向用户说明版本关系再决定是否强制覆盖
-- 两边都没有：报错停止
+- 命令带 `<workspace-name>` 时，验证该文件夹和 `workspace.md` 存在。
+- 未带名称时，通过 Obsidian CLI 列出 workspace 元数据，让用户选择；不要根据最近修改时间自动猜测。
+- 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
 
-### Step 3: 恢复 workspace 基础文件
+### 4. 设置本地当前 workspace
 
-恢复：
+将稳定 `workspace_id` 和当前文件夹名称写入本地状态文件，不写入知识库 Git 仓库。workspace 文件夹改名后以 `workspace.md` 中的稳定 ID 重新绑定。
 
-- `manifest.json`
-- `summary.md`
-- `conversation.jsonl`（默认应存在）
+### 5. 打开接手入口
 
-一致性校验：
+通过 Obsidian CLI：
 
-- 若 `manifest.conversation_saved=true` 但 `conversation.jsonl` 缺失，标记为远端数据不一致并提示用户重新 `push`
-- 若 `manifest.conversation_saved=false`，明确标记为“降级 workspace”，告知上下文完整性受限
+1. 打开知识库 Vault；
+2. 打开 `<workspace>/wiki/overview.md`；
+3. 读取并向用户呈现目标、当前任务、阻塞、缺口、联调和下一步。
 
-### Step 4: 恢复项目代码位置
+新 AI 会话默认只读取该 workspace 的 `SCHEMA.md`、`workspace.md`、`overview.md` 和活动任务子图；raw/历史按需展开。
 
-对 `manifest.projects` 中的每个项目：
+### 6. 恢复代码项目现场
 
-1. 优先查 `local-paths.json`
-2. 再在 `scan_roots` 下扫描 git 仓库并按规范化 remote 精确匹配
-3. 唯一命中时自动采用，并写回 `local-paths.json`
-4. 多个候选时让用户选
-5. 没有候选时再问用户本地路径
+根据 workspace 节点/项目状态中的规范化 Git remote 查找本机项目：
 
-恢复前先做校验：
+1. 优先使用本地状态中的 remote→path 映射；
+2. 其次检查当前 cwd；
+3. 再使用用户明确提供的路径；不扫描整台机器。
 
-- 目标目录必须是 git 仓库
-- `remote.origin.url` 规范化后必须和记录匹配
-- 本地工作区如果有未提交改动，则跳过该项目，不强制覆盖
+对于每个已解析项目：
 
-恢复动作：
+- remote 不匹配：跳过并报告；
+- 工作树 dirty：不切分支、不 checkout、不覆盖，报告跳过；
+- 工作树干净且目标分支存在：切到记录分支并尝试恢复记录 HEAD；
+- 目标 commit 不存在：保留当前代码现场并报告。
 
-- 切到记录的分支
-- 尝试 checkout 到记录的 `HEAD`
-- 失败时标记为 `skipped_head_missing`
+代码恢复失败不撤销知识库 Git pull；必须明确告诉用户“知识库已同步，但代码现场未完整恢复”。
 
-### Step 5: 导入 portable skill states
+## 结果
 
-读取各 skill 的 `workspace-sync.contract.json`：
+至少报告：
 
-- `sync_paths`：直接恢复对应路径
-- `import_command`：仅在 contract 明确要求时，调用该 skill 自己的命令
-
-结果单独汇报为：
-
-- `restored`
-- `skipped`
-- `missing`
-- `deferred`
-
-### Step 6: 重新呈现上下文
-
-不要只说”恢复成功”。必须分两层呈现，让用户同时看到当前 workspace 的细节和更大 Epic 的全貌。
-
-**微观层（本 workspace 内）**，基于 `summary.md`：
-
-- 整体目标与验收标准
-- 背景与约束
-- 关键决策
-- 每个项目的当前停点（分支、HEAD、代码状态）
-- 未决问题
-
-**宏观层（Epic 全景）**，基于 `summary.md` 章节 8：
-
-- 本 workspace 在 Epic 中的位置
-- Epic 已完成 vs 待完成的任务列表
-- 完成本 workspace 后建议的下一个 workspace 或 task
-
-如果 `summary.md` 缺少宏观层（章节 8 为空或不存在）：
-
-- 主动通过 issue tracker 补全（有 GitLab/GitHub 配置时自动查询；否则明确提示用户补充）
-- 告知用户”当前 summary 缺少 Epic 全景，建议在本次工作结束后 push 时补全章节 8”
-
-如果 `conversation.jsonl` 缺失：
-
-- 明确告知当前恢复为降级模式
-- 提示用户该摘要可能遗漏历史细节
-- 建议在源设备重新执行一次包含完整对话的 `push`
-
-如果某些项目因为本地脏工作区、路径未解析或 `HEAD` 缺失而未恢复完整，必须明确提示：
-
-- 摘要仅能作为参考
-- 当前代码现场和摘要可能不完全一致
-
-### Step 7: 给出衔接动作
-
-衔接动作需覆盖两个层次，不要要求用户再手打一遍 `/workspace-sync` 命令：
-
-- **立即可做**：根据 `summary.md` 章节 7 的”微观下一步”，给出一个具体的衔接命令或操作
-- **完成后下一步**：根据 `summary.md` 章节 8 的”Epic 待完成”，说明本 workspace 全部验收后应该开始的下一个 task 是什么
+- Git 同步结果和是否存在冲突；
+- 选择的 workspace、生命周期和 overview 路径；
+- 每个代码项目的 restored/skipped 结果及原因；
+- 当前 workspace 后续可执行的 compile、开发或 push 动作。
