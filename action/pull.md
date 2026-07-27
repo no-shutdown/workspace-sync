@@ -3,7 +3,7 @@
 ## 命令
 
 ```text
-/workspace-sync pull [workspace-name]
+/workspace-sync pull [工作区名称]
 ```
 
 ## 目标
@@ -27,7 +27,7 @@
 
 ### 3. 选择 workspace
 
-- 命令带 `<workspace-name>` 时，验证该文件夹和 `工作区.md` 存在。
+- 命令带 `<工作区名称>` 时，验证该文件夹和 `工作区.md` 存在。
 - 未带名称时，通过 Obsidian CLI 列出 workspace 元数据，让用户选择；不要根据最近修改时间自动猜测。
 - 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
 
@@ -43,11 +43,11 @@
 2. 打开 `<workspace>/图谱/总览.md`；
 3. 读取并向用户呈现目标、当前任务、阻塞、缺口、联调和下一步。
 
-新 AI 会话默认只读取该 workspace 的 `SCHEMA.md`、`工作区.md`、`图谱/总览.md` 和活动任务子图；原始资料/历史按需展开。
+新 AI 会话默认只读取该 workspace 的 `SCHEMA.md`、`工作区.md`、`图谱/总览.md`、活动任务子图和必要的项目支撑记录；原始资料/历史按需展开。
 
 ### 6. 恢复代码项目现场
 
-根据 workspace 节点/项目状态中的规范化 Git remote 查找本机项目：
+根据 workspace `图谱/说明/项目/` 支撑记录中的规范化 Git remote 查找本机项目：
 
 1. 优先使用本地状态中的 remote→path 映射；
 2. 其次检查当前 cwd；

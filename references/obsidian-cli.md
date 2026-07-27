@@ -20,18 +20,18 @@ Git 适配器负责 clone、fetch、commit、rebase 和 push，不与本适配�
 具体参数以本机 CLI 版本为准，以下只表达调用意图：
 
 ```text
-obsidian vault="dev-knowledge" open path="task-graph/图谱/总览.md"
-obsidian vault="dev-knowledge" read path="task-graph/工作区.md"
-obsidian vault="dev-knowledge" create path="task-graph/原始资料/2026-07-27-规划.md" content="..."
-obsidian vault="dev-knowledge" append path="task-graph/图谱/日志.md" content="..."
+obsidian vault="dev-knowledge" open path="数据导入迭代/图谱/总览.md"
+obsidian vault="dev-knowledge" read path="数据导入迭代/工作区.md"
+obsidian vault="dev-knowledge" create path="数据导入迭代/原始资料/2026-07-27-规划.md" content="..."
+obsidian vault="dev-knowledge" append path="数据导入迭代/图谱/日志.md" content="..."
 obsidian vault="dev-knowledge" folders folder=""
-obsidian vault="dev-knowledge" files folder="task-graph" ext=md
-obsidian vault="dev-knowledge" search query="task-graph"
+obsidian vault="dev-knowledge" files folder="数据导入迭代" ext=md
+obsidian vault="dev-knowledge" search query="数据导入迭代"
 obsidian vault="dev-knowledge" unresolved
 obsidian vault="dev-knowledge" orphans
 obsidian vault="dev-knowledge" deadends
-obsidian vault="dev-knowledge" links path="task-graph/图谱/节点/任务/任务-实现订单导入.md"
-obsidian vault="dev-knowledge" backlinks path="task-graph/图谱/节点/任务/任务-实现订单导入.md"
+obsidian vault="dev-knowledge" links path="数据导入迭代/图谱/节点/任务/任务-实现订单导入.md"
+obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/任务/任务-实现订单导入.md"
 ```
 
 ## 读取边界

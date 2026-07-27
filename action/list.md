@@ -25,9 +25,9 @@
 4. 展示名称、生命周期、更新时间，例如：
 
    ```text
-   1. task-graph       active    updated 2026-07-27
-   2. release-cleanup  paused    updated 2026-07-20
-   3. old-migration     archived  updated 2026-06-01
+   1. 数据导入迭代     active    updated 2026-07-27
+   2. 发布清理         paused    updated 2026-07-20
+   3. 旧版迁移         archived  updated 2026-06-01
    ```
 
 5. 提示用户回复序号或名称。用户选择后：
@@ -35,4 +35,4 @@
    - 通过 Obsidian CLI 打开该 workspace 的 `图谱/总览.md`；
    - 告知后续 compile/push 将默认作用于此 workspace。
 
-如果没有 workspace，进入新建流程：要求用户输入名称，初始化 `工作区.md`、`原始资料/`、`图谱/`、`图谱/节点/`、`图谱/视图/` 和 `图谱/候选/` 结构，并将新 workspace 设为当前 workspace。不要猜测名称。
+如果没有 workspace，进入新建流程：要求用户输入名称，初始化 `工作区.md`、`原始资料/`、四类 `图谱/节点/`、`图谱/视图/`、`图谱/说明/` 和 `图谱/候选/` 结构，并将新 workspace 设为当前 workspace。不要猜测名称。
