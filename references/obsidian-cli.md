@@ -30,6 +30,8 @@ obsidian vault="dev-knowledge" search query="数据导入迭代"
 obsidian vault="dev-knowledge" unresolved
 obsidian vault="dev-knowledge" orphans
 obsidian vault="dev-knowledge" deadends
+obsidian vault="dev-knowledge" open path="数据导入迭代/图谱/视图/开发任务.md"
+obsidian vault="dev-knowledge" links path="数据导入迭代/图谱/节点/任务/任务-开发总任务.md"
 obsidian vault="dev-knowledge" links path="数据导入迭代/图谱/节点/任务/任务-实现订单导入.md"
 obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/任务/任务-实现订单导入.md"
 ```
