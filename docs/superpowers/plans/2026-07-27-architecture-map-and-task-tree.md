@@ -180,7 +180,7 @@ GREEN 阶段使用同类场景读取 active skill，检查四类正式类型、�
 
   Re-run the three RED scenarios after each active skill source is available. Each result must enforce: four formal types; one confirmed `任务-开发总任务` root; `分解为` as the only tree edge; `依赖` as a non-hierarchical cross-link; architecture graph excluding task-tree edges; `开发路线` as a bridge only; and old view names as migration inputs.
 
-- [ ] **Step 3: Run repository verification**
+- [x] **Step 3: Run repository verification**
 
   ```bash
   git diff --check
@@ -193,7 +193,7 @@ GREEN 阶段使用同类场景读取 active skill，检查四类正式类型、�
 
   Expected: source and active skill match, current docs use `开发任务.md`, legacy task-list wording is limited to migration compatibility, and no active copy path is staged.
 
-- [ ] **Step 4: Commit only intended feature files**
+- [x] **Step 4: Commit only intended feature files**
 
   ```bash
   git add SKILL.md README.md CONTEXT.md templates/SCHEMA.md.example action/compile.md action/list.md action/migrate.md action/pull.md action/push.md references/layered-views.md references/obsidian-cli.md references/workspace-layout.md docs/adr/0084-architecture-map-and-rooted-task-tree.md docs/superpowers/specs/2026-07-27-architecture-map-and-task-tree-design.md docs/superpowers/plans/2026-07-27-architecture-map-and-task-tree.md
@@ -201,7 +201,7 @@ GREEN 阶段使用同类场景读取 active skill，检查四类正式类型、�
   git commit -m "feat: add rooted development task tree"
   ```
 
-- [ ] **Step 5: Push the feature branch**
+- [x] **Step 5: Push the feature branch**
 
   ```bash
   git push -u origin main-devtree
