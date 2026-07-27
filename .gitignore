@@ -1,3 +1,4 @@
 config.json
 local-paths.json
 /.idea/
+.worktrees/
