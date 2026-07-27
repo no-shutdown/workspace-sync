@@ -1,44 +1,149 @@
-# Personal Development Knowledge Base Schema
+# 个人开发知识库规范
 
-## Boundaries
+## 边界
 
-- The repository is one Obsidian Vault.
-- Each top-level workspace folder is one isolated development iteration.
-- Semantic Wiki links may point only inside the current workspace.
-- raw Markdown is free-form input and is never overwritten by compile.
-- overview.md and index.md are generated pages.
-- log.md is append-only.
+- 整个仓库是一个 Obsidian Vault。
+- 每个顶层 workspace 文件夹是一段相互隔离的开发迭代。
+- 用户可见的目录和节点文件名使用中文；节点文件名统一为 `类型-名字.md`。
+- 语义 Wiki 链接只指向当前 workspace 的正式节点。
+- `原始资料/` 中的 Markdown 是自由格式输入，compile 永不覆盖。
+- `图谱/总览.md`、`图谱/索引.md` 和 `图谱/视图/` 是生成页面。
+- `图谱/日志.md` 只追加，不覆盖历史。
 
-## Node types
+## 工作区布局
 
-- project
-- system
-- capability
-- gap
-- integration
-- task
-- decision
+```text
+<工作区>/
+├── 工作区.md
+├── 原始资料/
+└── 图谱/
+    ├── 总览.md
+    ├── 索引.md
+    ├── 日志.md
+    ├── 节点/
+    │   ├── 项目/
+    │   ├── 系统/
+    │   ├── 能力/
+    │   ├── 能力缺口/
+    │   ├── 任务/
+    │   └── 决策/
+    ├── 视图/
+    └── 候选/
+```
 
-## Task statuses
+## 节点类型
 
-- 待开始
-- 进行中
-- 已阻塞
-- 已完成
-- 已取消
+正式节点类型只有六类：
 
-## Relation syntax
+- 项目：代码仓库或产品开发对象。
+- 系统：提供或消费能力、并具有交互边界的运行单元。
+- 能力：系统应提供或需要具备的可观察行为或结果。
+- 能力缺口：目标能力与当前实际能力之间已确认的缺失。
+- 任务：可执行、可跟踪的开发工作。
+- 决策：已经确认且需要持续追溯的技术选择及理由。
 
-Use a relation label followed by a Wiki link in the node body:
+“功能”统一归入“能力”；“联调点”不再作为节点类型，系统之间用“需要联调”关系表达。联调只有在正文中需要详细记录接口、数据、时序或验证规则时，才作为普通说明页面保留，不进入正式节点图谱。
 
-~~~md
-- 解决：[[gap-example]]
-- 依赖：[[task-example]]
-- 关联项目：[[project-example]]
-~~~
+类型边界和重复检查：
 
-YAML stores identity, type, status, timestamps and source references; it does not duplicate graph relations.
+- 能力与能力缺口都保留：能力表达“应该/已经能做什么”，能力缺口表达“当前缺什么”。相同主题应通过“目标能力”关系连接，而不是合并。
+- 项目与系统都保留：项目是代码仓库，系统是运行或架构边界；项目不是系统的父节点。
+- 能力缺口与任务都保留：能力缺口表达问题，任务表达行动；任务通过“解决”关系连接缺口。
+- 决策保留为支撑对象，不默认进入主架构视图。
+- 同一中文类型下标题相同、或内容高度疑似同义时，生成重复候选；用户确认后再合并，保留被合并节点的 ID、来源和历史。
 
-## Candidate policy
+## 节点文件与元数据
 
-Candidates are suggestions, not formal nodes. User confirmation creates a new formal node and preserves the candidate page as history.
+节点路径形如：
+
+```text
+图谱/节点/任务/任务-实现订单导入.md
+```
+
+```yaml
+---
+id: task-xxxx
+type: 任务
+title: 实现订单导入
+aliases:
+  - task-xxxx
+status: 待开始
+created_at: 2026-07-27T10:00:00+08:00
+updated_at: 2026-07-27T10:00:00+08:00
+source_refs:
+  - ../../../原始资料/2026-07-27-订单导入规划.md
+---
+```
+
+`id` 是稳定身份，改名不改变；`title` 是中文节点名称；`aliases` 用于兼容历史 ID 或旧文件名。文件名是用户界面，不是身份来源。同类型同名节点必须进入待确认重复项，不能静默合并。
+
+任务节点额外包含 `status`，正式值为：`待开始`、`进行中`、`已阻塞`、`已完成`、`已取消`。
+
+## 关系
+
+关系只写在正文中，格式为“关系类型 + 中文节点 Wiki 链接”：
+
+```md
+## 关系
+
+- 包含：[[系统-订单服务]]
+- 提供：[[能力-订单导入]]
+- 缺少：[[能力缺口-订单导入缺少幂等校验]]
+- 目标能力：[[能力-订单导入]]
+- 解决：[[能力缺口-订单导入缺少幂等校验]]
+- 需要联调：[[系统-库存系统]]
+- 关联系统：[[系统-库存系统]]
+- 依赖：[[任务-先完成认证改造]]
+- 分解为：[[任务-实现订单导入幂等校验]]
+- 关联项目：[[项目-订单服务]]
+- 受决策约束：[[决策-使用消息幂等键]]
+```
+
+关系约束：
+
+- `包含` 只用于系统到系统，表达架构层级。
+- `提供`、`缺少` 表达系统与能力/能力缺口的关系。
+- `解决` 表达任务与能力缺口的关系。
+- `需要联调` 表达系统之间需要协作验证的关系，不创建联调点节点。
+- `关联系统` 用于把联调任务定位到参与系统。
+- `分解为` 只表达任务层级；`依赖` 只表达任务依赖，不能互相替代。
+- `关联项目`、`受决策约束` 是支撑关系，不默认进入系统架构图。
+
+关系端点约束：
+
+| 关系 | 起点 → 终点 |
+| --- | --- |
+| 包含 | 系统 → 系统 |
+| 提供 | 系统 → 能力 |
+| 缺少 | 系统 → 能力缺口 |
+| 目标能力 | 能力缺口 → 能力 |
+| 需要联调 | 系统 → 系统 |
+| 关联系统 | 任务 → 系统 |
+| 解决 | 任务 → 能力缺口 |
+| 分解为 | 任务 → 任务 |
+| 依赖 | 任务 → 任务 |
+| 关联项目 | 系统/任务 → 项目 |
+| 受决策约束 | 系统/能力/能力缺口/任务/项目 → 决策 |
+
+## 分层视图
+
+compile 生成四个互相聚焦的视图：
+
+- `系统架构.md`：系统层级、能力和项目实现映射。
+- `能力缺口.md`：系统 → 能力缺口 → 任务。
+- `开发任务.md`：任务分解、状态和依赖。
+- `系统联调.md`：系统间联调关系和关联任务。
+
+视图中的 Mermaid 或列表只是阅读投影；正式节点正文中的关系才是唯一事实来源。
+
+## 候选
+
+候选是建议，不是正式节点。用户确认后创建新的正式节点，并保留候选页的转化历史；用户拒绝后保留拒绝理由。
+
+重复候选可以使用：
+
+```yaml
+kind: duplicate
+status: pending
+candidate_id: candidate-duplicate-001
+```

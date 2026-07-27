@@ -27,23 +27,23 @@
 
 ### 3. 选择 workspace
 
-- 命令带 `<workspace-name>` 时，验证该文件夹和 `workspace.md` 存在。
+- 命令带 `<workspace-name>` 时，验证该文件夹和 `工作区.md` 存在。
 - 未带名称时，通过 Obsidian CLI 列出 workspace 元数据，让用户选择；不要根据最近修改时间自动猜测。
 - 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
 
 ### 4. 设置本地当前 workspace
 
-将稳定 `workspace_id` 和当前文件夹名称写入本地状态文件，不写入知识库 Git 仓库。workspace 文件夹改名后以 `workspace.md` 中的稳定 ID 重新绑定。
+将稳定 `workspace_id` 和当前文件夹名称写入本地状态文件，不写入知识库 Git 仓库。workspace 文件夹改名后以 `工作区.md` 中的稳定 ID 重新绑定。
 
 ### 5. 打开接手入口
 
 通过 Obsidian CLI：
 
 1. 打开知识库 Vault；
-2. 打开 `<workspace>/wiki/overview.md`；
+2. 打开 `<workspace>/图谱/总览.md`；
 3. 读取并向用户呈现目标、当前任务、阻塞、缺口、联调和下一步。
 
-新 AI 会话默认只读取该 workspace 的 `SCHEMA.md`、`workspace.md`、`overview.md` 和活动任务子图；raw/历史按需展开。
+新 AI 会话默认只读取该 workspace 的 `SCHEMA.md`、`工作区.md`、`图谱/总览.md` 和活动任务子图；原始资料/历史按需展开。
 
 ### 6. 恢复代码项目现场
 
@@ -67,6 +67,6 @@
 至少报告：
 
 - Git 同步结果和是否存在冲突；
-- 选择的 workspace、生命周期和 overview 路径；
+- 选择的 workspace、生命周期和总览路径；
 - 每个代码项目的 restored/skipped 结果及原因；
 - 当前 workspace 后续可执行的 compile、开发或 push 动作。

@@ -11,8 +11,8 @@ workspace 对代码项目有感知，但知识库不拥有代码。项目现场�
 ~~~yaml
 ---
 id: project-order-service
-type: project
-title: order-service
+type: 项目
+title: 订单服务
 remote: gitlab.example.com/team/order-service
 created_at: 2026-07-27T10:00:00+08:00
 updated_at: 2026-07-27T10:00:00+08:00

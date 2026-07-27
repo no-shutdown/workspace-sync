@@ -1,18 +1,18 @@
 # workspace-sync
 
-`workspace-sync` 是一个个人开发知识库 skill：把开发迭代、任务、系统能力、能力缺口、联调点、技术决策和代码项目现场组织成可被人和 AI 共同使用的 Obsidian Markdown 图谱。
+`workspace-sync` 是一个个人开发知识库 skill：把开发迭代、任务、系统、能力、能力缺口和代码项目现场组织成可被人和 AI 共同使用的 Obsidian Markdown 图谱。技术决策作为支撑记录，系统联调使用关系表达。
 
 知识库由用户配置的一个 Git 仓库承载。仓库本身就是 Obsidian Vault；其中每个顶层文件夹都是一个独立 workspace，也就是一个开发迭代。一个 workspace 可以同时关联多个代码项目，不与任何单一项目一一绑定。
 
 ## 核心体验
 
-规划阶段可以使用 superpowers、grill-with-docs 或其他方式产生自由格式 raw Markdown。规划结束后，在 AI 对话中执行一行：
+规划阶段可以使用 superpowers、grill-with-docs 或其他方式产生自由格式原始资料。规划结束后，在 AI 对话中执行一行：
 
 ```text
 /workspace-sync compile
 ```
 
-如果已有 raw，compile 会将其增量整理成 Wiki 节点和开发图谱；如果没有 raw，但当前会话已经明确确认了开发任务，compile 会先生成 raw，再继续编译。原始资料保留，Wiki 由 LLM 持续维护，`overview.md` 和 `index.md` 自动生成。
+如果已有原始资料，compile 会将其增量整理成中文节点和分层开发图谱；如果没有原始资料，但当前会话已经明确确认了开发任务，compile 会先生成原始资料，再继续编译。原始资料保留，图谱由 LLM 持续维护，`图谱/总览.md`、`图谱/索引.md` 和 `图谱/视图/` 自动生成。
 
 ## 命令
 
@@ -20,6 +20,7 @@
 /workspace-sync config
 /workspace-sync pull [workspace-name]
 /workspace-sync list
+/workspace-sync migrate
 /workspace-sync compile
 /workspace-sync push
 ```
@@ -27,7 +28,8 @@
 - `config`：配置个人开发知识库 Git 仓库。
 - `pull`：同步仓库、选择/恢复 workspace，并打开接手入口。
 - `list`：列出本地 workspace，选择后设置当前 workspace；不自动同步远端。
-- `compile`：把当前 workspace 的 raw 或已确认会话结论编译成开发图谱。
+- `migrate`：将已有 workspace 的旧英文目录、类型和链接迁移为中文布局；执行前需要确认。
+- `compile`：把当前 workspace 的原始资料或已确认会话结论编译成开发图谱。
 - `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端。
 
 每次涉及知识库事实的工作都必须先有当前 workspace。没有时会要求输入名称并新建；不自动猜测，也不跨 workspace 读取。
@@ -38,43 +40,46 @@
 knowledge-base/
 ├── SCHEMA.md
 └── <workspace-name>/
-    ├── workspace.md
-    ├── raw/
+    ├── 工作区.md
+    ├── 原始资料/
     │   └── *.md
-    └── wiki/
-        ├── overview.md
-        ├── index.md
-        ├── log.md
-        ├── nodes/
-        │   ├── projects/
-        │   ├── systems/
-        │   ├── capabilities/
-        │   ├── gaps/
-        │   ├── integrations/
-        │   ├── tasks/
-        │   └── decisions/
-        └── candidates/
+    └── 图谱/
+        ├── 总览.md
+        ├── 索引.md
+        ├── 日志.md
+        ├── 节点/
+        │   ├── 项目/
+        │   ├── 系统/
+        │   ├── 能力/
+        │   ├── 能力缺口/
+        │   ├── 任务/
+        │   └── 决策/
+        ├── 视图/
+        │   ├── 系统架构.md
+        │   ├── 能力缺口.md
+        │   ├── 开发任务.md
+        │   └── 系统联调.md
+        └── 候选/
 ```
 
-raw 是不可覆盖的自由格式输入；节点页面是正式图谱事实；候选页面等待用户确认；`overview.md`、`index.md` 是可重建的生成视图；`log.md` 是追加式操作记录。
+原始资料是不可覆盖的自由格式输入；节点页面是正式图谱事实；候选页面等待用户确认；总览、索引和分层视图是可重建的生成页面；日志是追加式操作记录。
 
 ## 图谱模型
 
-图谱不是严格任务树。节点类型包括：
+图谱不是严格任务树。正式节点类型包括：
 
 - 项目、系统、能力
-- 能力缺口、联调点
-- 任务、技术决策
+- 能力缺口、任务、决策
 
-关系使用正文中的语义 Wiki 链接，例如：
+节点文件名统一为 `类型-名字.md`，关系使用正文中的中文语义 Wiki 链接，例如：
 
 ```md
-- 缺少：[[gap-user-import]]
-- 需要联调：[[integration-order-api]]
-- 依赖：[[task-auth-refactor]]
+- 缺少：[[能力缺口-订单导入缺少幂等校验]]
+- 需要联调：[[系统-库存系统]]
+- 依赖：[[任务-先完成认证改造]]
 ```
 
-任务可以通过“分解为”形成树形视图，但依赖、项目关联和系统协作关系可以跨越树层级。正式任务状态为：待开始、进行中、已阻塞、已完成、已取消。
+系统使用“包含”形成架构层级；任务通过“分解为”形成任务层级；依赖、项目关联和系统协作关系在其他视图中单独展示。正式任务状态为：待开始、进行中、已阻塞、已完成、已取消。
 
 ## Git 与代码项目边界
 

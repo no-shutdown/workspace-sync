@@ -8,7 +8,7 @@
 
 ## 目标
 
-提交并推送当前 workspace 已经产生的个人开发知识库变更，同时记录关联代码项目的现场指针。push 不重新解释 raw，不自动运行 compile，也不复制代码。
+提交并推送当前 workspace 已经产生的个人开发知识库变更，同时记录关联代码项目的现场指针。push 不重新解释原始资料，不自动运行 compile，也不复制代码。
 
 ## 步骤
 
@@ -45,11 +45,11 @@ dirty 项目允许 push 知识库。只把 dirty 标志和指针写入 workspace
 - 使用 Git fetch 检查配置分支是否有远端变化。
 - 本地知识库有未提交变更时，先保留现场并整理；不要用 pull 覆盖。
 - 远端变化可以安全整合时，先 fast-forward 或 rebase；存在冲突时停止。
-- 禁止 force push、reset --hard 或静默删除人工 Wiki。
+- 禁止 force push、reset --hard 或静默删除人工图谱页面。
 
 ### 5. 限定提交范围
 
-本次 commit 默认只包含当前 workspace 文件夹内的知识库变更，包括其 `workspace.md`、raw、Wiki 节点、候选、生成页面和日志。
+本次 commit 默认只包含当前 workspace 文件夹内的知识库变更，包括其 `工作区.md`、原始资料、图谱节点、候选、生成页面和日志。
 
 - 其他 workspace 的变更不自动加入；
 - 根目录 `SCHEMA.md` 的变更不自动加入；
