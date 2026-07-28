@@ -36,9 +36,15 @@ obsidian vault="dev-knowledge" links path="数据导入迭代/图谱/节点/任�
 obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/任务/任务-实现订单导入.md"
 ```
 
+## workspace 选择前的预边界发现
+
+当前会话 workspace 尚未建立时，Obsidian CLI 的读取仅限于预边界的控制元数据发现：使用 `folders folder=""` 列出 Vault 根目录一级文件夹，并读取每个候选 workspace 的 `工作区.md` 中用于选择的稳定 `workspace_id`、显示名称、生命周期和 `updated_at`。这些字段只用于控制选择，不属于知识库事实。
+
+在用户选择候选并重新读取、验证所选 `工作区.md` 的稳定 `workspace_id` 之前，不得读取候选 workspace 的图谱页面、workspace 正文、links/backlinks/files/search 结果、任务、架构或其他上下文事实。选择前也不读取用户级 `current_workspace_*`，不写会话缓存、共享 current pointer 或其他 fallback state；验证通过后才可建立当前 workspace 边界并执行正常的 workspace-scoped reads。
+
 ## 局部上下文查询意图
 
-开始任何 links/backlinks/files/search/read 查询前，必须先建立当前会话 workspace 边界：
+建立当前会话 workspace 边界后，开始任何 workspace-scoped 的 links/backlinks/files/search/read 查询前，必须：
 
 - 默认读取 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；
 - 或接受显式 workspace 作为单次覆盖；
@@ -56,7 +62,7 @@ obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/
 
 ## 读取边界
 
-每次调用显式带当前 workspace 路径或在读取结果后按 workspace 根目录过滤。没有当前会话 workspace 时，停止读取知识库事实，不执行 Vault 范围内的 links/backlinks/files/search 推断。禁止用 Vault 全局搜索结果直接写入当前 workspace；跨 workspace 的结果只能被忽略或作为用户显式请求的普通参考。
+除上述预边界控制元数据发现外，每次调用显式带当前 workspace 路径或在读取结果后按 workspace 根目录过滤。没有当前会话 workspace 时，停止读取知识库事实，不执行 Vault 范围内的 links/backlinks/files/search 推断。禁止用 Vault 全局搜索结果直接写入当前 workspace；跨 workspace 的结果只能被忽略或作为用户显式请求的普通参考。
 
 ## 写入边界
 

@@ -28,7 +28,8 @@
 ### 3. 选择 workspace
 
 - 命令带 `<工作区名称>` 时，验证该文件夹和 `工作区.md` 存在，并按稳定 `workspace_id` 直接绑定该 workspace。
-- 未带名称时，通过 Obsidian CLI 列出 workspace 元数据，让用户选择；不要根据最近修改时间自动猜测。
+- 未带名称时，按 `references/obsidian-cli.md` 的预边界元数据发现规则，通过 Obsidian CLI 列出 Vault 根目录文件夹，并从每个候选 `工作区.md` 读取用于选择的稳定 `workspace_id`、显示名称、生命周期和 `updated_at`；这些是控制元数据，不是知识库事实。用户选择前不读取候选 workspace 的图谱页面、workspace 正文、links/backlinks/files/search 结果、任务、架构或其他上下文事实，也不根据最近修改时间自动猜测或写入缓存、fallback state。
+- 用户明确选择后，无论来自命令参数还是交互选择，都必须重新读取所选 `工作区.md` 并验证其稳定 `workspace_id` 与用户明确选择的目标一致；验证通过前不得打开总览或组装上下文，验证失败则停止，不回退到其他 workspace。
 - 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
 - 缓存缺失、损坏或 workspace 身份校验失败时，默认选择行为停止并要求用户重新明确选择；不回退到用户级 `current_workspace_*`、目录名或其他会话。运行环境缺少 `session_id` 或 `run_dir` 时，只有经验证的显式 workspace（命令参数或用户明确选择）可以完成一次非持久化操作；既没有有效会话上下文也没有显式 workspace 时停止。
 

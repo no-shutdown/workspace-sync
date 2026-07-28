@@ -21,8 +21,8 @@
 ## 步骤
 
 1. 读取本地配置和设备级状态，确认知识库路径；设备级状态只用于 `project_paths` 等本机信息，不读取 `current_workspace_*` 作为默认来源。
-2. 通过 Obsidian CLI 的 `folders` 命令列出 Vault 根目录的一级文件夹，并读取候选文件夹内的 `工作区.md`。
-3. 只保留包含有效 `workspace_id` 和生命周期的 workspace。
+2. 在当前会话 workspace 尚未建立时，按预边界规则通过 Obsidian CLI 的 `folders` 命令列出 Vault 根目录的一级文件夹，并对每个候选文件夹内的 `工作区.md` 只读取用于选择的控制元数据：稳定 `workspace_id`、显示名称、生命周期和 `updated_at`。这些元数据不属于知识库事实；用户选择并完成稳定 ID 验证前，不读取候选 workspace 的图谱页面、workspace 正文、links/backlinks/files/search 结果、任务、架构或其他上下文事实，也不写会话缓存或 fallback state。
+3. 只保留控制元数据包含有效稳定 `workspace_id` 和生命周期的候选 workspace；这一步不替代用户选择。用户选择后重新读取所选 `工作区.md`，验证其稳定 `workspace_id` 与所选候选一致，验证失败则停止，不打开总览或读取 workspace 上下文。
 4. 展示名称、生命周期、更新时间，例如：
 
    ```text
@@ -32,6 +32,7 @@
    ```
 
 5. 提示用户回复序号或名称。用户选择后：
+   - 先重新读取所选 workspace 的 `工作区.md`，验证稳定 `workspace_id` 与所选候选一致；只有验证通过后，才执行焦点校验、缓存绑定、打开总览或其他 workspace-scoped reads；不能用候选目录名或其他 workspace 事实替代稳定 ID 验证；
    - 读取当前会话缓存中已有的 `workspace_id`，并与所选 workspace 的稳定 `workspace_id` 比较。只有两者相同，且 `focus_task_id` 已在所选 workspace 中验证为正式 `任务` 节点时，才保留该焦点；不满足任一条件时不保留；
    - 切换 workspace 时将 `focus_task_id` 清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点。缓存焦点无效时清除并报告 warning；告诉用户可以随后选择新的焦点，不能按名称、活动状态、最近更新时间或其他 workspace 推断；
    - 仅在 `session_id`、`run_dir` 均有效且会话缓存可写的有效会话上下文中，将稳定 `workspace_id`、显示名称和按上述规则确定的 `focus_task_id` 写入当前会话缓存；写入时使用临时文件加原子替换，不创建共享 `current.json` 或其他全局指针；条件不满足时按下一条无缓存分支处理；
