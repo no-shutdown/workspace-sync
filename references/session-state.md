@@ -28,7 +28,9 @@ cache = <run_dir>/.workspace-sync-cache/sessions/<session-id>.json
 
 - `workspace_id` 是唯一身份来源。
 - `workspace_name` 只是显示缓存；每次依赖知识库事实的命令都必须回到目标 workspace 的 `工作区.md`，按 `workspace_id` 校验名称和生命周期。
-- `focus_task_id` 只影响当前会话的上下文装配，不修改共享任务状态或全局“当前任务”。
+- `focus_task_id` 只影响当前会话的上下文装配，不修改共享任务状态或全局“当前任务”；它严格绑定同一缓存中的 `workspace_id`，只能指向该 workspace 中经验证的正式 `任务` 节点。
+
+绑定 workspace 时，只有缓存的 `workspace_id` 与所选 workspace 相同，且缓存焦点已在所选 workspace 中通过正式任务校验，才可以保留 `focus_task_id`。切换 workspace 时必须把它清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时清除并报告 warning。用户可以随后选择新的焦点，不能跨 workspace 搬运或推断焦点。
 
 ## 安全与并发要求
 
@@ -41,7 +43,7 @@ cache = <run_dir>/.workspace-sync-cache/sessions/<session-id>.json
 
 `compile`、`push`、`migrate` 等依赖知识库事实的默认行为只读取当前会话缓存，或接受显式 workspace 作为单次覆盖。
 
-遇到以下情况时必须安全停止并要求重新选择，不能根据旧指针、文件名、最近更新时间或其他会话猜测 workspace：
+遇到以下情况时，依赖默认会话边界的行为必须安全停止并要求重新选择，不能根据旧指针、文件名、最近更新时间或其他会话猜测 workspace：
 
 - 缓存文件不存在；
 - 缓存 JSON 损坏或无法解析；
@@ -49,9 +51,9 @@ cache = <run_dir>/.workspace-sync-cache/sessions/<session-id>.json
 - `工作区.md` 中的稳定 ID 与缓存 `workspace_id` 不匹配；
 - `session_id` 非法。
 
-如果运行环境没有 `session_id`，不能回退到用户级 `current_workspace_*` 或其他共享默认值。此时用户可以显式指定 workspace 完成单次操作，但该操作不写共享缓存；后续命令仍需再次显式指定，直到运行环境提供稳定的会话 ID。
+如果运行环境没有 `session_id` 或 `run_dir`，不能回退到用户级 `current_workspace_*` 或其他共享默认值。此时经验证的显式 workspace 可以完成一次非持久化操作，但不写任何回退状态；后续命令仍需再次显式指定，直到运行环境提供有效的会话上下文。既没有有效会话上下文也没有显式 workspace 时，必须停止。
 
-如果没有 `run_dir`，或无法创建/读取 `<run_dir>/.workspace-sync-cache/sessions/`，报告“会话状态不可持久化”；不创建用户级替代缓存。
+如果无法创建/读取 `<run_dir>/.workspace-sync-cache/sessions/`，对默认行为报告“会话状态不可持久化”并停止；对已经验证的显式 workspace 可以继续一次非持久化操作，但不创建用户级替代缓存。
 
 ## 旧状态兼容
 

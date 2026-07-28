@@ -19,7 +19,7 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 
 ## 不可违反的规则
 
-1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有会话边界时，停止读取知识库事实并要求用户选择；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
+1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有有效会话上下文且没有经验证的显式 workspace 时，停止读取知识库事实并要求用户选择；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性操作，不写任何回退状态；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
 2. **workspace = iteration**：workspace 是开发迭代本身，不是一次会话、一个代码项目或一份临时总结。
 3. **硬隔离**：默认只读取和写入当前 workspace；不跨 workspace 自动加载、解析或创建图谱语义链接。
 4. **单一 Git 知识库**：配置只有一个个人开发知识库 Git 仓库。`pull`、`compile`、`push` 都直接作用于这个仓库，不复制出另一份 workspace 内容。
@@ -90,7 +90,7 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 }
 ```
 
-缓存路径固定为 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`。会话启动时确定 `run_dir`；后续命令不随 Vault 路径迁移缓存。两个会话可以选择同一个 workspace，但不能共享同一个会话文件。
+缓存路径固定为 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`。会话启动时确定 `run_dir`；后续命令不随 Vault 路径迁移缓存。两个会话可以选择同一个 workspace，但不能共享同一个会话文件。`focus_task_id` 的作用域固定为缓存中的 `workspace_id`：只允许保存并使用该 workspace 内经验证的正式 `任务` 节点 ID，切换 workspace 时不得未经验证地沿用；没有明确且有效的新焦点时写入 `null`，由用户随后选择，不能推断。
 
 ## 知识库仓库结构
 
@@ -238,20 +238,20 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 
 1. 检查本地知识库是否有未提交变更；有则停止并要求先处理。
 2. fetch 并以安全方式整合配置分支；冲突停止，不覆盖本地图谱。
-3. 若指定 workspace，选择它；否则列出本地 workspace 并让用户选择。没有 workspace 时进入新建流程并让用户命名。
-4. 将稳定 `workspace_id`、显示名称和当前 `focus_task_id` 写入当前会话缓存，并通过 Obsidian CLI 打开 Vault 和该 workspace 的 `图谱/总览.md`。
+3. 若指定 workspace，验证其 `工作区.md` 并按稳定 `workspace_id` 选择它；否则列出本地 workspace 并让用户明确选择。没有 workspace 时进入新建流程并让用户命名。缓存缺失、损坏或 workspace 身份校验失败时，默认行为停止并要求重新选择，不使用旧指针；如果 `session_id` 或 `run_dir` 不可用，只有经验证的显式 workspace 可以继续一次非持久化操作，不写任何回退状态。
+4. `pull` 绑定 workspace 时，只有在当前会话缓存的 `workspace_id` 等于所选 `workspace_id`，且其中的 `focus_task_id` 已在所选 workspace 中验证为正式 `任务` 节点时，才保留该焦点。切换 workspace 时将 `focus_task_id` 清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时先清除并报告 warning，再按焦点选择规则继续。写入使用临时文件加原子替换，不创建用户级或全局回退指针；通过 Obsidian CLI 打开 Vault 和该 workspace 的 `图谱/总览.md`。
 5. 按记录的项目 remote/分支/HEAD 尝试恢复本地干净代码项目；路径解析顺序为用户明确提供的路径、当前 cwd 或 `run_dir` 中匹配 remote 的仓库、用户级 `project_paths`；无法唯一定位、dirty、路径缺失或 commit 缺失时跳过并报告。
 
 ## list 工作流
 
-`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户选择后把稳定 `workspace_id`、显示名称和当前 `focus_task_id` 写入当前会话缓存，并打开 `图谱/总览.md`。需要远端变化时明确执行 `pull`。
+`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户明确选择后，只有在缓存的 `workspace_id` 与所选 workspace 相同且 `focus_task_id` 已验证为该 workspace 的正式 `任务` 时才保留焦点。切换 workspace 时将焦点清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时清除并报告 warning，告诉用户可以随后选择新的焦点，不能推断焦点。写入当前会话缓存并打开 `图谱/总览.md`；需要远端变化时明确执行 `pull`。
 
 ## 新 AI 会话启动与局部上下文装配
 
 新会话开始工作前必须先解析当前会话缓存或接受显式 workspace。上下文按以下固定顺序装配：
 
-1. **建立边界**：优先读取 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`，或接受显式 workspace 作为单次覆盖，并用 `workspace_id` 校验目标 `工作区.md`。缓存缺失、损坏、workspace 不存在、ID 不匹配，或在没有显式 workspace 时缺少 `session_id` / `run_dir`，都必须停止读取知识库事实并要求用户重新选择；不回退到用户级 `current_workspace_*`。当运行环境缺少 `session_id` 或 `run_dir` 但用户已显式指定 workspace 时，本次只执行一次性操作，不写会话缓存，后续命令仍需再次显式指定。
-2. **选择焦点**：焦点优先级固定为“用户明确指定 > 当前会话缓存中的 `focus_task_id` > 当前对话明确确认 > `总览.md` 标记的活动任务”。焦点必须是当前 workspace 中已确认的正式 `任务` 节点；不存在、类型不对或关系不健康时报告 warning，不自动创建、挂接或修复。没有可确认焦点时，只展示活动任务摘要并要求选择，不按名称、项目、同级任务或最近修改时间猜测。
+1. **建立边界**：优先读取 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`，或接受显式 workspace 作为单次覆盖，并用 `workspace_id` 校验目标 `工作区.md`。缓存缺失、损坏、workspace 不存在、ID 不匹配或其他 workspace 身份无效时，默认行为停止并要求重新选择；不回退到用户级 `current_workspace_*`。当运行环境缺少 `session_id` 或 `run_dir` 时，经验证的显式 workspace 只执行一次非持久化操作，不写任何回退状态；既没有有效会话上下文也没有显式 workspace 时停止。
+2. **选择焦点**：焦点优先级固定为“用户明确指定 > 当前会话缓存中属于当前 `workspace_id` 且已验证的 `focus_task_id` > 当前对话明确确认 > `总览.md` 标记的活动任务”。`focus_task_id` 必须是当前 workspace 中已确认的正式 `任务` 节点；缓存焦点不存在、类型不对、workspace 作用域不符或关系不健康时清除并报告 warning，再按剩余优先级继续，不自动创建、挂接、跨 workspace 搬运或推断焦点。没有可确认焦点时，只展示活动任务摘要并要求用户选择。
 3. **读取任务闭包**：以焦点任务为种子读取其正文、状态、来源和关系；沿 `分解为` 反向追溯到 `任务-开发总任务` 的完整父级链，读取直接子任务、直接依赖，以及反向依赖它的未完成直接依赖者。`分解为` 只表达任务父子，`依赖` 只表达跨分支前置条件；不把依赖当父级，不默认递归二阶依赖或加载完整任务树。
 4. **读取架构闭包**：沿焦点任务的 `解决`、`涉及系统` 读取缺口、目标能力和系统；沿系统 `包含` 读取架构祖先和直接子系统；读取邻域系统的 `提供` 能力、`存在缺口`，以及明确的 `需要联调` 关系和关联任务入口。没有 `解决` 或 `涉及系统` 时报告“任务缺少架构定位”，不按名称或页面邻近关系猜测。
 5. **读取直接支撑**：只读取焦点任务或其架构邻域直接关联的 `图谱/说明/项目/`、`图谱/说明/决策/` 和 `图谱/说明/联调/` 页面。节点 `source_refs` 指向的原始资料按需展开；完整原始资料、历史和无关 workspace 只在需要追溯时读取。

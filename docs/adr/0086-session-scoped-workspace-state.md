@@ -12,13 +12,15 @@ status: accepted
 
 会话缓存只保存 `version`、`session_id`、`workspace_id`、`workspace_name` 和 `focus_task_id`。所有依赖知识库事实的默认读取都先解析该文件，再用 `workspace_id` 回到知识库中的 `工作区.md` 做稳定身份校验。
 
-没有 `session_id` 时，不回退到用户级全局 current workspace 指针；调用方只能执行显式 workspace 的单次操作。`.workspace-sync-cache` 是否加入 Git ignore 由用户自行决定，skill 不自动修改 `.gitignore` 或 `.git/info/exclude`。
+`focus_task_id` 严格绑定同一缓存中的 `workspace_id`，只能指向该 workspace 中经验证的正式 `任务` 节点。保留焦点前必须同时匹配 workspace ID 和任务校验；切换 workspace 时清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点。`.workspace-sync-cache` 是否加入 Git ignore 由用户自行决定，skill 不自动修改 `.gitignore` 或 `.git/info/exclude`。
 
-本 ADR 补充并取代 ADR-0045 中“本机指针由共享本地状态文件承载”的实现语义，但不删除历史 ADR：ADR-0045 仍保留“当前 workspace 不进入共享知识库”的边界决策；本 ADR 只把默认指针的载体从设备级共享文件收窄为会话级缓存。
+ADR-0045 建立的是当前 workspace 只属于本机/当前会话上下文、不进入共享知识库的历史边界，并未规定由某个共享本地状态文件承载的具体实现。本 ADR 保留该 local-only 边界，并在实现层面取代 ADR-0045 未具体规定的本地 current pointer 机制，统一使用当前运行目录下的会话缓存。
+
+与 ADR-0062 的关系是：`list` 仍只通过 Obsidian CLI 读取本地 Vault 中的 workspace 并让用户选择，不执行远端同步；该 local-Vault-only list/selection 边界保持不变，但选择结果现在绑定当前会话缓存，而不是绑定一个未具体规定的设备级 current pointer。
 
 ## Consequences
 
 - 同一 `run_dir` 下的多个会话可以绑定不同 workspace，不会互相覆盖默认 workspace 或聚焦任务。
 - 旧 `local-state.json` 中的 `current_workspace_*` 只作为历史字段保留并忽略；`project_paths` 继续作为用户/设备级路径映射。
-- 缓存缺失、损坏、workspace 删除、ID 不匹配、session ID 非法或缺少 `run_dir` 时，相关命令安全停止并要求重新选择，不猜测、不跨会话回退。
+- 缓存缺失、损坏、workspace 删除、ID 不匹配、session ID 非法或其他 workspace 身份无效时，依赖默认会话边界的行为安全停止并要求重新选择，不猜测、不跨会话回退。如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 可以完成一次非持久化操作，不写任何回退状态；既没有有效会话上下文也没有显式 workspace 时停止。
 - `config` 不再承担当前 workspace 指针写入；`list`、`pull` 和显式 workspace 成功后可以更新当前会话缓存。
