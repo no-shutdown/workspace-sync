@@ -72,7 +72,7 @@ dirty 项目允许 push 知识库。只把 dirty 标志和指针写入对应项�
 - commit ID 和远端推送结果。
 
 push 成功后不修改其他 workspace 的当前指针，也不自动打开其他页面。
-显式 workspace 覆盖成功后，在 `session_id` 和 `run_dir` 均有效的会话上下文中可以更新当前会话缓存；如果任一缺失，只执行本次 push，不写入会话缓存、用户级 `current_workspace_*` 或其他全局回退，后续命令必须重新显式选择 workspace。
+显式 workspace 覆盖成功后，只有在 `session_id` 和 `run_dir` 均有效且会话缓存可写时，才可以更新当前会话缓存；否则本次 push 仅作为一次性、非持久化操作，不写入会话缓存、用户级 `current_workspace_*` 或其他全局回退，后续命令必须重新显式选择 workspace。
 
 ## 结果报告
 

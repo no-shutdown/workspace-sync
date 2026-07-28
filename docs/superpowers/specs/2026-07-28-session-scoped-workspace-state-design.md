@@ -72,7 +72,7 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 
 - `workspace_id` 是唯一身份来源；`workspace_name` 只是显示缓存。
 - 每次依赖知识库事实的命令都通过 `workspace_id` 回到该 workspace 的 `工作区.md` 校验名称和生命周期。
-- `focus_task_id` 只影响当前会话的上下文装配，不修改任务状态或共享的“当前任务”。
+- `focus_task_id` 只影响当前会话的上下文装配，不修改任务状态或共享的“当前任务”。`list`/`pull` 绑定 workspace 时，只有缓存的 `workspace_id` 等于所选 workspace，且该焦点 ID 已在所选 workspace 中验证为正式 `任务`，才保留 `focus_task_id`；切换 workspace 时清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点。无效焦点清除并告知用户随后选择，不能跨 workspace 搬运或推断。
 - `session_id` 必须经过路径安全校验，不能包含路径分隔或路径穿越片段。
 - 写入会话文件时使用临时文件加原子替换，避免同一会话的并发写入留下半个 JSON。
 - 不创建共享的 `current.json`，不同会话永远不能写同一个默认指针。
@@ -83,10 +83,10 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 
 `session_id` 和 `run_dir` 是调用方运行上下文的一部分，不由 workspace 名称、项目名称或时间戳推断。
 
-- 如果运行环境能提供稳定的会话 ID，Skill 使用该 ID 定位缓存文件。
-- 如果运行环境无法提供会话 ID，不能回退到用户级 `current_workspace`。
-- 没有会话 ID 时，用户可以显式指定 workspace 执行单次操作；该操作不写入共享缓存，后续命令仍需显式指定 workspace，直到运行环境提供会话 ID。
-- 没有 `run_dir` 或无法创建/读取缓存目录时，报告会话状态不可持久化；不创建用户级替代缓存。
+- 如果运行环境能提供有效的 `session_id` 和 `run_dir`，Skill 使用它们定位缓存文件。
+- 如果运行环境无法提供 `session_id` 或 `run_dir`，不能回退到用户级 `current_workspace` 或其他全局指针。
+- 缺少 `session_id` 或 `run_dir` 时，经验证的显式 workspace 可以执行一次非持久化操作；该操作不写会话缓存、用户级状态或其他回退状态，后续命令仍需显式指定 workspace，直到运行环境提供有效的会话上下文。既没有有效会话上下文也没有显式 workspace 时停止。
+- 只有 `session_id` 和 `run_dir` 均有效且会话缓存可写时，显式 workspace 覆盖才可以更新会话缓存；无法创建/读取缓存目录时，对已经验证的显式 workspace 继续一次非持久化操作并报告会话状态不可持久化，不创建用户级替代缓存。
 
 ### 4. 命令行为
 
@@ -96,18 +96,18 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 
 #### `list`
 
-通过 Obsidian CLI 列出本地 workspace。用户选择后，将稳定 `workspace_id`、显示名称和当前焦点（如有）写入当前会话缓存，并打开该 workspace 的 `图谱/总览.md`。
+通过 Obsidian CLI 列出本地 workspace。用户选择后，只有在缓存的 `workspace_id` 等于所选 workspace 且缓存焦点已验证为该 workspace 的正式 `任务` 时，才保留 `focus_task_id`；切换 workspace 时清为 `null`，除非本次命令明确提供有效的替代焦点。无效焦点清除并报告 warning，告诉用户可以随后选择新的焦点，不能推断。只有 `session_id`、`run_dir` 均有效且会话缓存可写时，才将稳定 `workspace_id`、显示名称和按上述规则确定的焦点写入当前会话缓存；否则本次选择仅作为一次性、非持久化操作，不写任何回退状态，并打开该 workspace 的 `图谱/总览.md`。
 
 #### `pull [工作区名称]`
 
-先按现有安全 Git 流程同步知识库。指定名称时绑定该 workspace；未指定时让用户选择。同步和选择完成后写入当前会话缓存，并打开接手入口。
+先按现有安全 Git 流程同步知识库。指定名称时绑定该 workspace；未指定时让用户选择。绑定时只有在缓存的 `workspace_id` 等于所选 workspace 且缓存焦点已验证为该 workspace 的正式 `任务` 时，才保留 `focus_task_id`；切换 workspace 时清为 `null`，除非本次命令明确提供有效的替代焦点。无效焦点清除并报告 warning，不能跨 workspace 搬运或推断。同步和选择完成后，仅在 `session_id`、`run_dir` 均有效且会话缓存可写时更新当前会话缓存；否则本次操作仅作为一次性、非持久化操作，不写任何回退状态，并打开接手入口。
 
 #### `compile`、`push`、`migrate`
 
 - 默认只读取当前会话缓存。
 - 缓存不存在、无法解析、workspace 不存在或 workspace 身份校验失败时停止并要求选择。
 - 不读取旧用户级 `current_workspace_*`。
-- 支持显式 workspace 作为一次性覆盖；覆盖操作成功后可以更新当前会话缓存，但不能更新用户级指针。
+- 支持显式 workspace 作为一次性覆盖；只有 `session_id`、`run_dir` 均有效且会话缓存可写时，覆盖操作成功后才可以更新当前会话缓存；否则本次操作仅作为一次性、非持久化操作，不写用户级、全局或其他回退状态。
 
 所有默认读取和写入仍限制在选定 workspace。生成页面、节点关系、Git 提交范围和远端同步规则不因缓存位置改变。
 
@@ -157,7 +157,7 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 仅读取/写入当前 workspace
         │
         ▼
-按需原子更新当前会话缓存
+仅在 session_id + run_dir 有效且缓存可写时，按需原子更新当前会话缓存；否则显式操作保持一次性、非持久化
 ```
 
 知识库事实仍通过 Obsidian CLI 和 Git 仓库存取；会话缓存只负责选择边界，不成为第二份事实来源。
@@ -169,7 +169,7 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 - 旧 `local-state.json` 的 `current_workspace_*` 不再生效，`project_paths` 仍可用于默认路径解析。
 - 缓存缺失、JSON 损坏、workspace 被删除、ID 不匹配或 session ID 非法时安全停止，不猜测、不回退到其他会话。
 - `config` 不改变任何会话的 workspace。
-- 显式 workspace 可以在无 session ID 时完成单次操作，但不会创建共享缓存。
+- 显式 workspace 在无 `session_id` 或 `run_dir` 时可以完成一次非持久化操作，但不会创建会话缓存、用户级状态或其他共享回退；只有两者有效且缓存可写时才更新当前会话缓存。
 - 不修改用户项目的 `.gitignore` 或 `.git/info/exclude`。
 - 相关 Skill、命令文档、ADR 和示例配置不再声称用户级状态文件保存共享的 current workspace。
 - 文档变更通过 Markdown diff 检查、shell 语法检查和源文件/活动副本一致性检查。
