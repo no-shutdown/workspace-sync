@@ -48,6 +48,7 @@
 ## 写入与收尾
 
 - 只更新 `config.json` 的知识库连接和本机 Vault 信息。
-- `current_workspace_id`、`current_workspace_name` 和项目本地路径写入本地 `state_file`，不能写入 Git 仓库。
+- `state_file` 只保留用户/设备级信息，例如 `project_paths`；旧 `current_workspace_id`、`current_workspace_name` 只作为历史字段保留并忽略，不再写入。
+- 当前 workspace 绑定改由会话缓存 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json` 管理；`config` 不创建也不更新任何 workspace 选择。
 - 已有配置先保留备份，再替换经过验证的字段。
-- 成功后展示配置生效路径，并提示执行 `/workspace-sync pull` 或 `/workspace-sync list` 选择 workspace。
+- 成功后展示配置生效路径，并提示用户通过 `/workspace-sync pull` 或 `/workspace-sync list` 在当前会话中建立 workspace；项目路径映射仍由用户/设备级 `state_file` 管理。

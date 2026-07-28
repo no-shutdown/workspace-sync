@@ -1,6 +1,6 @@
 # 知识库 Git 仓库配置流程
 
-配置目标只有一个：让用户指定个人开发知识库 Git 仓库，并在本机把它作为 Obsidian Vault 使用。workspace 不单独配置存储，也不保存成另一个缓存对象。
+配置目标只有一个：让用户指定个人开发知识库 Git 仓库，并在本机把它作为 Obsidian Vault 使用。workspace 不单独配置存储，也不保存成另一个共享缓存对象；当前 workspace/focus task 改为当前运行目录下的会话缓存。
 
 ## 逐项收集
 
@@ -43,8 +43,9 @@
 
 1. 备份已有 `config.json`；
 2. 只写入 `repository`、`obsidian` 和本地 `state_file` 配置；
-3. 当前 workspace 指针写入本地 state 文件，不写入共享知识库；
-4. 提示用户执行 `/workspace-sync pull` 同步并选择 workspace。
+3. `state_file` 只保存设备级配置和 `project_paths`；旧 `current_workspace_id`、`current_workspace_name` 只作为历史字段保留并忽略；
+4. 不写入任何 workspace 选择；当前 workspace 和 focus task 只由 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json` 承载，该缓存不进入知识库 Git，也不写入 Obsidian 页面；
+5. `config` 不选择 workspace，也不创建用户级全局 fallback；提示用户执行 `/workspace-sync pull` 或 `/workspace-sync list` 选择当前会话 workspace。
 
 ## 空仓库初始化
 

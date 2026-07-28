@@ -38,6 +38,16 @@ push
 
 不允许用 Git 命令直接代替 Obsidian CLI 读取、创建或修改 Vault 页面内容。Git 可以用来判断变更范围和版本状态。
 
-## 本地状态
+## 配置、设备状态与会话缓存
 
-Git 知识库仓库路径、分支和 Obsidian Vault 名称写入本机配置；当前 workspace 指针和代码项目路径映射写入本机 state。它们都不进入共享知识库，以便不同设备选择不同 workspace 和项目路径。
+Git 知识库仓库路径、分支和 Obsidian Vault 名称写入本机配置；`state_file` 只保存设备级 `project_paths` 等映射，不再承担当前 workspace 指针。
+
+当前 workspace 和 focus task 的默认来源是当前运行目录下的会话缓存：
+
+```text
+<run_dir>/.workspace-sync-cache/sessions/<session-id>.json
+```
+
+- `config` 只配置知识库连接与本地 Vault 信息，不选择 workspace。
+- 会话缓存只保存 `workspace_id`、`workspace_name` 和 `focus_task_id` 等会话边界，不进入共享知识库 Git，也不写入 Obsidian；它从不保存 `project_paths` 或项目路径解析结果。
+- 旧 `current_workspace_*` 只作为历史字段保留并忽略。项目路径解析只在运行时进行，按明确路径、当前 `run_dir`/cwd、设备级 `project_paths`、要求用户确认的顺序处理；设备级映射不因会话选择自动改写。

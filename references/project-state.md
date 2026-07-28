@@ -64,11 +64,14 @@ dirty 项目不阻断知识库 push。保存 dirty 标志和 Git 指针，不保
 
 恢复顺序：
 
-1. 根据 remote 查询本机 state 中的路径；
-2. 如用户明确提供路径，验证 remote 后使用；
-3. 检查当前 cwd 仅作为有限候选。
+1. 如用户在本次操作中明确提供路径，验证 remote 后优先使用；
+2. 检查当前 `run_dir` 或当前 cwd 中与目标 remote 匹配的仓库；
+3. 再根据 remote 查询设备级 state 中的 `project_paths`；
+4. 仍无法唯一定位时，要求用户确认。
 
 只有以下条件都满足才恢复分支和 HEAD：目标是匹配的 Git 仓库、工作树干净、分支存在、目标 commit 可用。否则跳过并报告，不能强制覆盖本地代码。
+
+项目路径解析只在运行时进行，按上述优先级使用明确路径、当前 `run_dir`/cwd 和设备级 `project_paths`；路径选择不写入会话缓存或共享知识库，也不自动改写用户级 `project_paths`。会话缓存只保存 workspace/focus 字段，从不保存 `project_paths`；这样不同会话可以在同一代码仓库的不同 worktree 中并行工作。
 
 ## 项目与任务关系
 
