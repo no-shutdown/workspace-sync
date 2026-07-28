@@ -19,7 +19,7 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 
 ## 不可违反的规则
 
-1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有有效会话上下文且没有经验证的显式 workspace 时，停止读取知识库事实并要求用户选择；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性操作，不写任何回退状态；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
+1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有有效会话上下文且没有经验证的显式 workspace 时，通常停止读取知识库事实并要求用户选择；但 `list`/`pull` 允许一个严格的预边界发现例外：只能列出 Vault 根目录候选文件夹并读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据，不能读取图谱、workspace 正文、关系、任务、架构或其他上下文，也不能写缓存或 fallback state。用户明确选择后，必须重新读取所选 `工作区.md` 并验证稳定 ID，验证通过后才能执行焦点检查、缓存绑定、打开总览或其他 workspace-scoped reads；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性操作，不写任何回退状态；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
 2. **workspace = iteration**：workspace 是开发迭代本身，不是一次会话、一个代码项目或一份临时总结。
 3. **硬隔离**：默认只读取和写入当前 workspace；不跨 workspace 自动加载、解析或创建图谱语义链接。
 4. **单一 Git 知识库**：配置只有一个个人开发知识库 Git 仓库。`pull`、`compile`、`push` 都直接作用于这个仓库，不复制出另一份 workspace 内容。
@@ -244,7 +244,7 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 
 ## list 工作流
 
-`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户明确选择后，只有在缓存的 `workspace_id` 与所选 workspace 相同且 `focus_task_id` 已验证为该 workspace 的正式 `任务` 时才保留焦点。切换 workspace 时将焦点清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时清除并报告 warning，告诉用户可以随后选择新的焦点，不能推断焦点。只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，才将选择绑定到当前会话缓存；否则显式用户选择仅作为一次性、非持久化操作，不写用户级或全局回退状态。`list` 仍只打开 `图谱/总览.md`，需要远端变化时明确执行 `pull`。
+`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。尚未建立 workspace 边界时，只能通过预边界规则读取候选控制元数据供用户选择；用户选择后必须重新读取所选 `工作区.md` 并验证稳定 ID，验证前不得执行焦点检查、缓存绑定、打开总览或其他 workspace-scoped reads。验证通过后，只有在缓存的 `workspace_id` 与所选 workspace 相同且 `focus_task_id` 已验证为该 workspace 的正式 `任务` 时才保留焦点。切换 workspace 时将焦点清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时清除并报告 warning，告诉用户可以随后选择新的焦点，不能推断焦点。只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，才将选择绑定到当前会话缓存；否则显式用户选择仅作为一次性、非持久化操作，不写用户级或全局回退状态。`list` 仍只打开 `图谱/总览.md`，需要远端变化时明确执行 `pull`。
 
 ## 新 AI 会话启动与局部上下文装配
 

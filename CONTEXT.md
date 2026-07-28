@@ -150,7 +150,7 @@ _避免_：共享绝对路径、用源设备路径恢复、路径作为仓库身
 **接手打开（Handoff Open）**：pull 完成知识库仓库恢复后，通过 Obsidian CLI 打开 Vault，并打开当前 workspace 的 `图谱/总览.md`，使用户和 AI 立即进入可接手状态。
 _避免_：只拉取文件不进入 workspace、打开旧 summary、自动打开其他 workspace
 
-**工作空间列表（Workspace Listing）**：通过 Obsidian CLI 查看当前本地 Vault 中的 workspace 文件夹，并在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存。它是本地选择操作，不负责远端 Git 同步；条件不满足时，显式用户选择只对当前命令生效、非持久化，不创建用户级或全局回退状态。
+**工作空间列表（Workspace Listing）**：通过 Obsidian CLI 列出 Vault 根目录候选文件夹，并在选择前只读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据；用户选择后重新读取并验证所选 `工作区.md` 的稳定 ID，验证前不读取图谱或其他 workspace 上下文。验证通过后，在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存。它是本地选择操作，不负责远端 Git 同步；条件不满足时，显式用户选择只对当前命令生效、非持久化，不创建用户级或全局回退状态。
 _避免_：远端快照列表、按代码项目列 workspace、list 自动 pull、写用户级全局 current workspace
 
 **知识库同步操作（Knowledge Base Sync Operation）**：直接作用于个人开发知识库 Git 仓库的 `pull`、`compile`、`push` 和会话边界迁移命令 `migrate`。它们默认共享同一个当前会话 workspace 上下文，也接受显式 workspace 作为单次覆盖；没有稳定会话上下文时不回退到用户级全局指针，不在另一个存储系统中生成交接副本。

@@ -1,6 +1,6 @@
 # 会话级 workspace 状态缓存设计
 
-- 状态：proposed
+- 状态：accepted
 - 日期：2026-07-28
 - 基于：当前 workspace 选择只保存在本地上下文、允许会话选择聚焦任务
 
@@ -93,6 +93,12 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 #### `config`
 
 只配置知识库连接、分支、本机 Vault 和设备级路径信息，不设置或修改任何会话的当前 workspace。
+
+#### 选择 workspace 前的预边界发现
+
+在当前会话 workspace 尚未建立时，`list`/`pull` 只允许通过 Obsidian CLI 列出 Vault 根目录候选文件夹，并读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据供用户明确选择。这些元数据不属于知识库事实；选择前不得读取候选 workspace 的图谱、正文、links/backlinks/files/search、任务、架构或其他上下文，也不得写会话缓存、全局指针或其他 fallback state。
+
+用户选择后，必须重新读取所选 `工作区.md`，验证其稳定 `workspace_id` 与选择目标一致；验证通过前不得打开总览、执行焦点检查或装配 workspace 上下文。验证通过后才建立 workspace 边界并执行正常的 workspace-scoped reads；无有效会话上下文时仍按显式 workspace 的一次性非持久化规则处理。
 
 #### `list`
 
