@@ -123,7 +123,7 @@ _避免_：共享 current.json、写入图谱的选择状态、把会话缓存�
 **本地当前工作空间指针（Local Current Workspace Pointer）**：当前 workspace 的默认载体已经收窄为当前运行目录下的会话缓存，而不是用户级共享 state 文件。旧 `current_workspace_id`、`current_workspace_name` 只作为历史字段保留并忽略；没有 `session_id`/`run_dir` 时，只允许显式 workspace 的单次操作，不创建全局 fallback。
 _避免_：用户级全局 current workspace、自动回退旧 state、写入图谱的选择状态
 
-**会话启动上下文（Session Bootstrap Context）**：新 AI 会话先读取当前会话缓存，或接受显式 workspace 作为单次覆盖；边界校验通过后，再在该 workspace 中建立最小可靠背景：根 `SCHEMA.md`、`工作区.md`、`总览.md`，然后按焦点优先级装配局部上下文闭包。焦点优先级固定为：用户明确指定 > 会话缓存中的 `focus_task_id` > 当前对话明确确认 > 总览标记的活动任务；没有可确认焦点时只展示活动任务摘要并等待选择。缓存缺失、损坏、workspace 不存在、稳定 ID 不匹配，或在没有显式 workspace 时缺少 `session_id`/`run_dir`，都必须停止读取知识库事实。原始资料、完整历史和无关 workspace 按需读取。
+**会话启动上下文（Session Bootstrap Context）**：新 AI 会话先读取当前会话缓存，或接受显式 workspace 作为单次覆盖；边界校验通过后，再在该 workspace 中建立最小可靠背景：根 `SCHEMA.md`、`工作区.md`、`总览.md`，然后按焦点优先级装配局部上下文闭包。焦点优先级固定为：用户明确指定 > 属于当前 workspace 且已验证的会话缓存 `focus_task_id` > 当前对话明确确认 > 总览标记的活动任务；缓存焦点无效或跨 workspace 时清除并报告 warning。没有可确认焦点时只展示活动任务摘要并等待选择。缓存缺失、损坏、workspace 不存在、稳定 ID 不匹配，或在没有显式 workspace 时缺少 `session_id`/`run_dir`，都必须停止读取知识库事实。原始资料、完整历史和无关 workspace 按需读取。
 _避免_：只加载单一 summary、按最近修改猜焦点、默认加载全部原始资料、无工作空间启动、回退旧全局指针
 
 **会话聚焦任务（Session Focus Task）**：本次 AI 会话可选的工作焦点。焦点任务必须是当前 workspace 中已确认的正式 `任务` 节点。指定后优先加载该任务的局部上下文闭包；不存在、类型不对或关系不健康时报告 warning，不自动创建、挂接或修复。未指定时不自动猜测。

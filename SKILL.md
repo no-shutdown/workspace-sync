@@ -19,7 +19,7 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 
 ## 不可违反的规则
 
-1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有有效会话上下文且没有经验证的显式 workspace 时，通常停止读取知识库事实并要求用户选择；但 `list`/`pull` 允许一个严格的预边界发现例外：只能列出 Vault 根目录候选文件夹并读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据，不能读取图谱、workspace 正文、关系、任务、架构或其他上下文，也不能写缓存或 fallback state。用户明确选择后，必须重新读取所选 `工作区.md` 并验证稳定 ID，验证通过后才能执行焦点检查、缓存绑定、打开总览或其他 workspace-scoped reads；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性操作，不写任何回退状态；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
+1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有有效会话上下文且没有经验证的显式 workspace 时，通常停止读取知识库事实并要求用户选择；但 `list`/`pull` 允许一个严格的预边界发现例外：只能列出 Vault 根目录候选文件夹并读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据，不能读取图谱、workspace 正文、links/backlinks/files/search、关系、任务、架构或其他上下文，也不能写缓存或 fallback state。用户明确选择后，必须重新读取所选 `工作区.md` 并验证稳定 ID，验证通过后才能执行焦点检查、缓存绑定、打开总览或其他 workspace-scoped reads；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性操作，不写任何回退状态；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
 2. **workspace = iteration**：workspace 是开发迭代本身，不是一次会话、一个代码项目或一份临时总结。
 3. **硬隔离**：默认只读取和写入当前 workspace；不跨 workspace 自动加载、解析或创建图谱语义链接。
 4. **单一 Git 知识库**：配置只有一个个人开发知识库 Git 仓库。`pull`、`compile`、`push` 都直接作用于这个仓库，不复制出另一份 workspace 内容。
