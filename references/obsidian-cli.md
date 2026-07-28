@@ -36,6 +36,17 @@ obsidian vault="dev-knowledge" links path="数据导入迭代/图谱/节点/任�
 obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/任务/任务-实现订单导入.md"
 ```
 
+## 局部上下文查询意图
+
+上下文装配时，查询结果必须限定在当前 workspace，并按关系语义使用：
+
+- `links path=<焦点任务>`：读取焦点任务正文中的出边，识别 `分解为`、`依赖`、`解决` 和 `涉及系统` 的直接端点；再对端点页面执行 `links`，读取架构的 `目标能力`、`提供`、`存在缺口`、`包含` 和 `需要联调`。
+- `backlinks path=<焦点任务>`：读取任务的反向链接，沿标注为 `分解为` 的链接追溯父级链，并筛选标注为 `依赖` 且状态未完成的直接依赖者；不能把普通 backlink 或页面相邻当作父子关系。
+- `files folder=<当前 workspace>`、`search query=<来源或支撑关键词>`：只在当前 workspace 范围内查找 `source_refs` 指向的原始资料和直接关联的项目/决策/联调说明；结果需要回到页面正文或 frontmatter 验证。
+- `unresolved`、`orphans`、`deadends`：用于健康检查和 warning；未解析链接的显示文本不是事实，也不能因此创建占位节点或自动修复关系。
+
+生成视图的查询只用于导航和摘要。若视图内容与正式节点正文或语义 Wiki 链接不一致，以节点页面为准并报告生成页面过期；不要通过全 Vault 搜索把其他 workspace 的结果带入当前上下文。
+
 ## 读取边界
 
 每次调用显式带当前 workspace 路径或在读取结果后按 workspace 根目录过滤。禁止用 Vault 全局搜索结果直接写入当前 workspace；跨 workspace 的结果只能被忽略或作为用户显式请求的普通参考。
