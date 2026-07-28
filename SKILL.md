@@ -239,12 +239,12 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 1. 检查本地知识库是否有未提交变更；有则停止并要求先处理。
 2. fetch 并以安全方式整合配置分支；冲突停止，不覆盖本地图谱。
 3. 若指定 workspace，验证其 `工作区.md` 并按稳定 `workspace_id` 选择它；否则列出本地 workspace 并让用户明确选择。没有 workspace 时进入新建流程并让用户命名。缓存缺失、损坏或 workspace 身份校验失败时，默认行为停止并要求重新选择，不使用旧指针；如果 `session_id` 或 `run_dir` 不可用，只有经验证的显式 workspace 可以继续一次非持久化操作，不写任何回退状态。
-4. `pull` 绑定 workspace 时，只有在当前会话缓存的 `workspace_id` 等于所选 `workspace_id`，且其中的 `focus_task_id` 已在所选 workspace 中验证为正式 `任务` 节点时，才保留该焦点。切换 workspace 时将 `focus_task_id` 清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时先清除并报告 warning，再按焦点选择规则继续。写入使用临时文件加原子替换，不创建用户级或全局回退指针；通过 Obsidian CLI 打开 Vault 和该 workspace 的 `图谱/总览.md`。
+4. `pull` 绑定 workspace 时，只有在当前会话缓存的 `workspace_id` 等于所选 `workspace_id`，且其中的 `focus_task_id` 已在所选 workspace 中验证为正式 `任务` 节点时，才保留该焦点。切换 workspace 时将 `focus_task_id` 清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时先清除并报告 warning，再按焦点选择规则继续。只有在 `session_id`、`run_dir` 均有效且会话缓存可写的有效会话上下文中，才使用临时文件加原子替换写入当前会话缓存，不创建用户级或全局回退指针；否则所选显式 workspace 仅作为本次一次性、非持久化操作，不写任何回退指针。通过 Obsidian CLI 打开 Vault 和该 workspace 的 `图谱/总览.md`。
 5. 按记录的项目 remote/分支/HEAD 尝试恢复本地干净代码项目；路径解析顺序为用户明确提供的路径、当前 cwd 或 `run_dir` 中匹配 remote 的仓库、用户级 `project_paths`；无法唯一定位、dirty、路径缺失或 commit 缺失时跳过并报告。
 
 ## list 工作流
 
-`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户明确选择后，只有在缓存的 `workspace_id` 与所选 workspace 相同且 `focus_task_id` 已验证为该 workspace 的正式 `任务` 时才保留焦点。切换 workspace 时将焦点清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时清除并报告 warning，告诉用户可以随后选择新的焦点，不能推断焦点。写入当前会话缓存并打开 `图谱/总览.md`；需要远端变化时明确执行 `pull`。
+`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户明确选择后，只有在缓存的 `workspace_id` 与所选 workspace 相同且 `focus_task_id` 已验证为该 workspace 的正式 `任务` 时才保留焦点。切换 workspace 时将焦点清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；缓存焦点无效时清除并报告 warning，告诉用户可以随后选择新的焦点，不能推断焦点。只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，才将选择绑定到当前会话缓存；否则显式用户选择仅作为一次性、非持久化操作，不写用户级或全局回退状态。`list` 仍只打开 `图谱/总览.md`，需要远端变化时明确执行 `pull`。
 
 ## 新 AI 会话启动与局部上下文装配
 

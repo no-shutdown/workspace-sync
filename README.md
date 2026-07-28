@@ -27,7 +27,7 @@
 
 - `config`：配置个人开发知识库 Git 仓库。
 - `pull`：同步仓库；选择/恢复当前会话 workspace，并打开接手入口；没有有效当前会话 workspace 时负责引导选择或新建。
-- `list`：列出本地 workspace，选择后写入当前会话缓存；没有有效当前会话 workspace 时负责引导选择或新建；不自动同步远端。
+- `list`：列出本地 workspace，不自动同步远端；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存，否则显式用户选择仅作为一次性、非持久化操作，不写用户级或全局回退状态；没有有效当前会话 workspace 时负责引导选择或新建。
 - `migrate`：将已有 workspace 的旧英文目录、类型和链接迁移为中文布局；执行前需要确认。
 - `compile`：把当前会话 workspace 的原始资料或已确认会话结论编译成开发图谱；也可显式传 workspace 名称做单次覆盖。
 - `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端；也可显式传 workspace 名称做单次覆盖。
