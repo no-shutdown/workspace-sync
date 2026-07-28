@@ -32,7 +32,7 @@
 - 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
 - 缓存缺失、损坏或 workspace 身份校验失败时，默认选择行为停止并要求用户重新明确选择；不回退到用户级 `current_workspace_*`、目录名或其他会话。运行环境缺少 `session_id` 或 `run_dir` 时，只有经验证的显式 workspace（命令参数或用户明确选择）可以完成一次非持久化操作；既没有有效会话上下文也没有显式 workspace 时停止。
 
-### 4. 写入当前会话缓存
+### 4. 绑定当前会话缓存（条件写入）
 
 - 比较当前会话缓存的 `workspace_id` 与所选 workspace 的稳定 `workspace_id`。只有两者相同，且缓存中的 `focus_task_id` 已在所选 workspace 中验证为正式 `任务` 节点时，才保留该焦点。
 - 切换 workspace 时将 `focus_task_id` 清为 `null`，除非本次命令明确提供了所选 workspace 中有效的替代焦点；不得按名称、活动状态、最近更新时间或其他 workspace 推断焦点。

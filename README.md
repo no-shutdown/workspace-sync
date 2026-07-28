@@ -32,7 +32,7 @@
 - `compile`：把当前会话 workspace 的原始资料或已确认会话结论编译成开发图谱；也可显式传 workspace 名称做单次覆盖。
 - `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端；也可显式传 workspace 名称做单次覆盖。
 
-每次涉及知识库事实的工作都必须先有当前会话 workspace。`list`/`pull` 负责在没有有效当前会话 workspace 时引导选择或新建；`compile`/`push`/`migrate` 不自行进入选择或创建流程，没有有效当前会话缓存时必须显式传 workspace，否则停止。不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；workspace-sync 会把选择写到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`，不会回退到用户级全局指针。
+每次涉及知识库事实的工作都必须先有当前会话 workspace。`list`/`pull` 负责在没有有效当前会话 workspace 时引导选择或新建；`compile`/`push`/`migrate` 不自行进入选择或创建流程，没有有效当前会话缓存时必须显式传 workspace，否则停止。不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，workspace-sync 才会把选择持久化到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；否则显式选择仅作为一次性、非持久化操作，不写用户级或全局回退指针。
 
 ## 仓库结构
 
