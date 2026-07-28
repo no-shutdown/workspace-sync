@@ -8,7 +8,7 @@
 
 ## 目标
 
-同步唯一的个人开发知识库 Git 仓库，并选择一个 workspace 作为本机当前工作空间。`pull` 不复制出 workspace 快照；本地 clone 本身就是 Obsidian Vault。
+同步唯一的个人开发知识库 Git 仓库，并选择一个 workspace 绑定到当前会话。`pull` 不复制出 workspace 快照；本地 clone 本身就是 Obsidian Vault。
 
 ## 步骤
 
@@ -27,13 +27,16 @@
 
 ### 3. 选择 workspace
 
-- 命令带 `<工作区名称>` 时，验证该文件夹和 `工作区.md` 存在。
+- 命令带 `<工作区名称>` 时，验证该文件夹和 `工作区.md` 存在，并按稳定 `workspace_id` 直接绑定该 workspace。
 - 未带名称时，通过 Obsidian CLI 列出 workspace 元数据，让用户选择；不要根据最近修改时间自动猜测。
 - 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
+- 运行环境缺少 `session_id` 时，不回退到用户级 `current_workspace_*`；本次允许通过显式名称或用户选择完成一次性操作，但必须说明该绑定不会持久化到后续命令。
 
-### 4. 设置本地当前 workspace
+### 4. 写入当前会话缓存
 
-将稳定 `workspace_id` 和当前文件夹名称写入本地状态文件，不写入知识库 Git 仓库。workspace 文件夹改名后以 `工作区.md` 中的稳定 ID 重新绑定。
+- 将稳定 `workspace_id`、显示名称和保留的 `focus_task_id` 写入 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；写入时使用临时文件加原子替换，不创建全局 current pointer。
+- workspace 文件夹改名后，后续命令仍以 `工作区.md` 中的稳定 ID 重新绑定。
+- 如果缺少 `session_id`、`run_dir`，或缓存目录不可写，则不创建用户级替代状态；继续本次操作，但明确报告“知识库已同步，但会话 workspace 未持久化”。
 
 ### 5. 打开接手入口
 
@@ -49,9 +52,10 @@
 
 根据 workspace `图谱/说明/项目/` 支撑记录中的规范化 Git remote 查找本机项目：
 
-1. 优先使用本地状态中的 remote→path 映射；
-2. 其次检查当前 cwd；
-3. 再使用用户明确提供的路径；不扫描整台机器。
+1. 优先使用用户在本次操作中明确提供的路径；
+2. 其次检查当前 `run_dir` 或当前 cwd 中与 remote 匹配的仓库；
+3. 再使用设备级状态中的 `project_paths`；
+4. 仍无法唯一定位时要求用户确认；不扫描整台机器。
 
 对于每个已解析项目：
 
@@ -67,6 +71,6 @@
 至少报告：
 
 - Git 同步结果和是否存在冲突；
-- 选择的 workspace、生命周期和总览路径；
+- 选择的 workspace、生命周期、总览路径，以及会话缓存是否已成功持久化；
 - 每个代码项目的 restored/skipped 结果及原因；
 - 当前 workspace 后续可执行的 compile、开发或 push 动作。
