@@ -210,7 +210,7 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 
 执行 `/workspace-sync compile` 时：
 
-1. 先解析当前会话缓存或显式 workspace 覆盖，并按稳定 `workspace_id` 校验目标 `工作区.md`。缓存缺失、损坏、workspace 不存在、ID 不匹配或没有会话边界时，停止并要求用户选择；不读取旧用户级 `current_workspace_*`。
+1. 先解析当前会话缓存或显式 workspace 覆盖，并按稳定 `workspace_id` 校验目标 `工作区.md`。默认解析要求存在并通过校验的当前会话缓存；缓存缺失、损坏、workspace 不存在或 ID 不匹配时，默认行为停止并要求重新选择。不读取旧用户级 `current_workspace_*` 或其他全局 current pointer；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性、非持久化操作，不写任何回退状态；既没有有效会话上下文也没有显式 workspace 时停止。
 2. 通过 Obsidian CLI 读取已校验 workspace 的原始资料、图谱节点、候选和 `SCHEMA.md`；不读取其他 workspace。
 3. 发现新增/变化的原始资料时，保留原文并编译受影响的节点、关系、冲突、待确认项和候选。原始资料为自由格式，不强行套模板。
 4. 如果没有原始资料，但当前会话已经形成用户明确确认的开发任务或规划结论，先生成一份新的原始资料 Markdown，再继续编译；没有确认的想法只能保留为待确认项，不能成为正式事实。
@@ -225,7 +225,7 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 
 `push` 只作用于当前 workspace：
 
-1. 先解析当前会话缓存或显式 workspace 覆盖，并按稳定 `workspace_id` 校验目标 workspace。没有有效会话边界时安全停止；不读取用户级 `current_workspace_*`。
+1. 先解析当前会话缓存或显式 workspace 覆盖，并按稳定 `workspace_id` 校验目标 workspace。默认解析要求存在并通过校验的当前会话缓存；缓存缺失、损坏、workspace 不存在或身份不匹配时，默认行为安全停止并要求重新选择。不读取用户级 `current_workspace_*` 或其他全局 current pointer；如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 只允许本次一次性、非持久化操作，不写任何回退状态；既没有有效会话上下文也没有显式 workspace 时停止。
 2. 读取当前 workspace 的正式项目关联，并把当前 cwd 或当前 `run_dir` 中发现但未关联的仓库列为候选，要求确认；不扫描整台机器。
 3. 对已确认项目采集规范化 Git remote、当前分支、HEAD、upstream 和 dirty 状态。dirty 项目仍允许保存知识库，但只记录 dirty，不复制代码。
 4. 检查知识库 Git 远端变化；需要时先 fetch/rebase，冲突就停止，不 force push。

@@ -18,6 +18,8 @@ ADR-0045 建立的是当前 workspace 只属于本机/当前会话上下文、�
 
 与 ADR-0062 的关系是：`list` 仍只通过 Obsidian CLI 读取本地 Vault 中的 workspace 并让用户选择，不执行远端同步；该 local-Vault-only list/selection 边界保持不变，但选择结果现在绑定当前会话缓存，而不是绑定一个未具体规定的设备级 current pointer。
 
+与 ADR-0085 的关系仅限于焦点来源优先级：本 ADR 仅取代其旧的焦点来源优先级表述，保留其有界上下文闭包设计。当前优先级固定为“用户明确指定焦点 > 当前会话中已验证且作用域为所选 workspace 的 `focus_task_id` > 当前对话明确确认 > `总览.md` 活动任务”。这只是澄清会话状态的来源，不修改 ADR-0085 的历史文本。
+
 ## Consequences
 
 - 同一 `run_dir` 下的多个会话可以绑定不同 workspace，不会互相覆盖默认 workspace 或聚焦任务。
