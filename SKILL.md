@@ -35,8 +35,8 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 | 命令 | 接口 | 作用 |
 | --- | --- | --- |
 | `config` | `/workspace-sync config` | 配置一个知识库 Git 仓库、分支、本地 Vault 路径和 Obsidian Vault 名称 |
-| `pull` | `/workspace-sync pull [工作区名称]` | 同步知识库 Git 仓库，选择/恢复当前 workspace，并写入当前会话缓存后打开图谱总览 |
-| `list` | `/workspace-sync list` | 从本地 Vault 列出 workspace；选择后写入当前会话缓存并打开图谱总览，不自动 pull |
+| `pull` | `/workspace-sync pull [工作区名称]` | 同步知识库 Git 仓库并选择/恢复当前 workspace；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时绑定当前会话缓存，否则显式用户选择仅本次生效、非持久化，不写用户级或全局回退状态；完成选择后打开图谱总览 |
+| `list` | `/workspace-sync list` | 从本地 Vault 列出 workspace，不自动 pull；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存，否则显式用户选择仅本次生效、非持久化，不写用户级或全局回退状态；完成选择后打开图谱总览 |
 | `migrate` | `/workspace-sync migrate [工作区名称]` | 将当前会话 workspace 的旧英文目录、节点类型和链接安全迁移为中文布局；可用显式 workspace 做单次覆盖 |
 | `compile` | `/workspace-sync compile [工作区名称]` | 在 AI 对话中把当前会话 workspace 的原始资料或已确认会话结论编译为开发图谱；可用显式 workspace 做单次覆盖 |
 | `push` | `/workspace-sync push [工作区名称]` | 采集当前会话 workspace 关联项目现场，提交当前 workspace 的知识变更并推送 Git 远端；可用显式 workspace 做单次覆盖 |
