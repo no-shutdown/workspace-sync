@@ -3,10 +3,10 @@
 ## 命令
 
 ```text
-/workspace-sync compile
+/workspace-sync compile [工作区名称]
 ```
 
-这是 AI 对话中的 workspace-sync 指令。它使用已经选择的当前 workspace，不另加 workspace 参数，也不读取其他迭代。
+这是 AI 对话中的 workspace-sync 指令。它默认读取当前会话缓存中的 workspace，也接受显式 workspace 名称作为单次覆盖；无论哪种方式都只作用于一个已校验的 workspace，不读取其他迭代，也不读取旧的全局 current pointer。
 
 ## 目标
 
@@ -14,7 +14,7 @@
 
 ## 输入边界
 
-- 默认扫描当前 workspace 的 `原始资料/*.md`。
+- 默认扫描当前会话 workspace 的 `原始资料/*.md`；显式参数存在时，扫描该参数解析出的目标 workspace。
 - 原始资料不要求固定格式、章节、YAML 或 frontmatter。
 - 新规划内容必须追加为新的原始资料，不覆盖以前的原始资料。
 - 完整对话不是 compile 的必需输入，也不默认保存完整对话。
@@ -24,14 +24,21 @@
 
 ### 1. 确认上下文
 
-读取：
+先解析 workspace 边界：
+
+- 默认读取 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；
+- 命令带 `[工作区名称]` 时，先按该名称解析目标 workspace，再回到 `工作区.md` 用稳定 `workspace_id` 校验，并将它作为本次 compile 的单次覆盖；
+- 两者都没有时，停止并要求用户先执行 `list`/`pull` 选择 workspace，或在本次命令中显式提供名称；
+- 会话缓存缺失、损坏、`session_id` 非法、workspace 已不存在、`工作区.md` 的稳定 ID 与缓存不匹配，或运行环境缺少 `session_id` / `run_dir` 且又没有显式参数时，都必须安全停止；不回退到用户级 `current_workspace_*`，不按最近更新时间、目录名或其他会话猜测。
+
+边界校验通过后读取：
 
 - 根 `SCHEMA.md`；
-- 当前 workspace 的 `工作区.md`；
-- 当前 workspace 的 `图谱/总览.md`、`图谱/索引.md`、`图谱/日志.md` 和 `图谱/视图/`；
+- 目标 workspace 的 `工作区.md`；
+- 目标 workspace 的 `图谱/总览.md`、`图谱/索引.md`、`图谱/日志.md` 和 `图谱/视图/`；
 - 受影响的原始资料、正式节点、支撑记录和候选页面。
 
-对 Vault 内容的读取使用 Obsidian CLI。若当前 workspace 不存在，要求用户输入名称并先初始化，不猜测或借用其他 workspace。
+对 Vault 内容的读取使用 Obsidian CLI。显式 workspace 在缺少稳定会话 ID 时只作为一次性操作生效；不能写用户级替代缓存，也不能更新任何全局 current pointer。
 
 ### 2. 产生原始资料（仅在需要时）
 
@@ -140,6 +147,7 @@
 - 只有 warning 但内容已成功写入时，仍创建 commit；
 - 没有任何文件变化时只返回 no-op，不创建空 commit；
 - compile 不推送 Git 远端，远端同步由 `push` 负责。
+- 显式 workspace 覆盖成功后，可以把本次确认过的 workspace 写回当前会话缓存；不能写入用户级 `current_workspace_*` 或其他共享默认值。
 
 ## 输出
 
