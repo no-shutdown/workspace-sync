@@ -18,6 +18,7 @@
 - 命令带 `[工作区名称]` 时，先按该名称解析目标 workspace，再回到 `工作区.md` 用稳定 `workspace_id` 校验，并把它作为本次 push 的单次覆盖。
 - 两者都没有时，停止并要求用户先执行 `list`/`pull` 选择 workspace，或在本次命令中显式提供名称。
 - 会话缓存缺失、损坏、`session_id` 非法、workspace 已不存在、`工作区.md` 稳定 ID 不匹配，或运行环境缺少 `session_id` / `run_dir` 且又没有显式参数时，都必须安全停止；不读取用户级 `current_workspace_*`，不按最近使用或其他会话猜测。
+- 如果运行环境缺少 `session_id` 或 `run_dir`，但提供了显式 workspace，则只执行本次 push；不得写入会话缓存、用户级 `current_workspace_*` 或任何全局回退，后续命令必须重新显式选择 workspace。
 - 所有默认读取和写入都限制在当前会话 workspace；显式覆盖只影响本次操作。
 
 ### 2. 识别涉及的代码项目
@@ -71,7 +72,7 @@ dirty 项目允许 push 知识库。只把 dirty 标志和指针写入对应项�
 - commit ID 和远端推送结果。
 
 push 成功后不修改其他 workspace 的当前指针，也不自动打开其他页面。
-显式 workspace 覆盖成功后，可以更新当前会话缓存；不能写入用户级 `current_workspace_*` 或其他共享默认值。
+显式 workspace 覆盖成功后，在 `session_id` 和 `run_dir` 均有效的会话上下文中可以更新当前会话缓存；如果任一缺失，只执行本次 push，不写入会话缓存、用户级 `current_workspace_*` 或其他全局回退，后续命令必须重新显式选择 workspace。
 
 ## 结果报告
 
