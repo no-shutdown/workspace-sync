@@ -25,4 +25,4 @@ ADR-0045 建立的是当前 workspace 只属于本机/当前会话上下文、�
 - 同一 `run_dir` 下的多个会话可以绑定不同 workspace，不会互相覆盖默认 workspace 或聚焦任务。
 - 旧 `local-state.json` 中的 `current_workspace_*` 只作为历史字段保留并忽略；`project_paths` 继续作为用户/设备级路径映射。
 - 缓存缺失、损坏、workspace 删除、ID 不匹配、session ID 非法或其他 workspace 身份无效时，依赖默认会话边界的行为安全停止并要求重新选择，不猜测、不跨会话回退。如果 `session_id` 或 `run_dir` 不可用，经验证的显式 workspace 可以完成一次非持久化操作，不写任何回退状态；既没有有效会话上下文也没有显式 workspace 时停止。
-- `config` 不再承担当前 workspace 指针写入；`list`、`pull` 和显式 workspace 成功后可以更新当前会话缓存。
+- `config` 不再承担当前 workspace 指针写入；`list`、`pull` 或显式 workspace 成功后，只有在 `session_id` 和 `run_dir` 均有效且会话缓存可写时才更新当前会话缓存；否则本次显式操作仅作为一次性、非持久化操作，不写用户级、全局或其他回退状态。

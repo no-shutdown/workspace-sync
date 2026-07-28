@@ -147,7 +147,7 @@
 - 只有 warning 但内容已成功写入时，仍创建 commit；
 - 没有任何文件变化时只返回 no-op，不创建空 commit；
 - compile 不推送 Git 远端，远端同步由 `push` 负责。
-- 显式 workspace 覆盖成功后，可以把本次确认过的 workspace 写回当前会话缓存；不能写入用户级 `current_workspace_*` 或其他共享默认值。
+- 显式 workspace 覆盖成功后，只有在 `session_id` 和 `run_dir` 均有效且会话缓存可写时，才可以把本次确认过的 workspace 写回当前会话缓存；否则本次操作仅作为一次性、非持久化操作，不写用户级、全局或其他回退状态。
 
 ## 输出
 
