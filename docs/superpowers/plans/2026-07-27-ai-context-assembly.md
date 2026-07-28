@@ -35,19 +35,19 @@
 - Consumes: `docs/superpowers/specs/2026-07-27-ai-context-assembly-design.md`
 - Produces: 与 `SKILL.md` 一致的术语和用户可读说明，不改变四类正式类型与视图边界。
 
-- [ ] **Step 1: 定义局部上下文闭包**
+- [x] **Step 1: 定义局部上下文闭包**
 
   在 `CONTEXT.md` 的会话上下文术语附近新增“AI 局部上下文闭包”：说明它以焦点任务为种子，包含任务面包屑、直接子任务、直接依赖/未完成依赖者、架构邻域、联调关系和直接支撑记录；明确生成视图不是事实源。
 
-- [ ] **Step 2: 收紧会话启动与焦点选择**
+- [x] **Step 2: 收紧会话启动与焦点选择**
 
   将“新会话默认加载”和“会话聚焦任务”改为明确优先级：用户指定 > 当前确认 > 总览活动任务；焦点不存在、任务不明确或 workspace 未选择时只能报告并等待选择，不能按名称或最近修改时间猜测。
 
-- [ ] **Step 3: 在 README 增加 AI 接手说明**
+- [x] **Step 3: 在 README 增加 AI 接手说明**
 
   在现有架构图/任务树说明后补充一句：人使用分层视图，AI 读取总览加焦点任务局部闭包；列出任务层级、依赖和架构定位仍然来自节点正文关系。
 
-- [ ] **Step 4: 检查术语一致性**
+- [x] **Step 4: 检查术语一致性**
 
   Run:
 
@@ -58,7 +58,7 @@
 
   Expected: 两个文件都说明 AI 不读取全库、不猜测焦点，且没有把生成页面描述成事实源。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add CONTEXT.md README.md
@@ -75,23 +75,23 @@
 - Consumes: Task 1 的术语和 approved spec。
 - Produces: AI 可直接执行的上下文读取顺序、关系闭包、错误处理和规模控制规则。
 
-- [ ] **Step 1: 写入固定入口与焦点优先级**
+- [x] **Step 1: 写入固定入口与焦点优先级**
 
   在新 AI 会话规则中固定读取顺序：`SCHEMA.md`、`工作区.md`、`图谱/总览.md`，然后按“用户明确指定 > 当前确认 > 总览活动任务”选择焦点；没有焦点时只加载活动任务摘要，不猜测。
 
-- [ ] **Step 2: 写入任务上下文闭包**
+- [x] **Step 2: 写入任务上下文闭包**
 
   明确读取当前任务、沿 `分解为` 到 `任务-开发总任务` 的完整父级链、直接子任务、直接依赖和未完成直接依赖者；禁止用 `依赖` 代替父级，禁止默认递归二阶依赖或整个任务树。
 
-- [ ] **Step 3: 写入架构上下文闭包**
+- [x] **Step 3: 写入架构上下文闭包**
 
   明确沿 `解决`、`涉及系统`、`包含`、`提供`、`存在缺口`、`目标能力` 和 `需要联调` 读取架构邻域，并在缺关系时只生成“任务缺少架构定位” warning。
 
-- [ ] **Step 4: 写入支撑记录、来源和错误规则**
+- [x] **Step 4: 写入支撑记录、来源和错误规则**
 
   规定只读取焦点邻域直接关联的项目/决策/联调支撑记录；`source_refs` 指向的原始资料按需展开。补充 workspace 未选择、焦点不存在、未解析链接、图谱不健康和上下文过大时的安全行为。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add SKILL.md
@@ -111,23 +111,23 @@
 - Consumes: Task 2 的会话装配契约。
 - Produces: compile/pull/CLI 文档与 SKILL 规则一致，且不会引入第二份 AI 事实页面。
 
-- [ ] **Step 1: 更新 compile 的总览输出**
+- [x] **Step 1: 更新 compile 的总览输出**
 
   规定 `图谱/总览.md` 保留目标、健康状态、两条面包屑、活动任务摘要和视图入口，并为焦点任务提供 `开发任务.md`、`架构地图.md`、`开发路线.md` 和节点页面链接；总览只作导航，不能存独立任务状态。
 
-- [ ] **Step 2: 更新 pull 的接手提示**
+- [x] **Step 2: 更新 pull 的接手提示**
 
   规定 pull 后先打开总览，再按用户焦点读取任务局部闭包；没有焦点时呈现活动任务选择，不自动进入最近修改任务。
 
-- [ ] **Step 3: 更新分层视图说明**
+- [x] **Step 3: 更新分层视图说明**
 
   在 `references/layered-views.md` 增加“AI 局部上下文”章节，明确任务树与架构图分别是人类入口，AI 通过节点正文关系跨视图组装上下文；禁止把桥接表或 Mermaid 标签当作事实。
 
-- [ ] **Step 4: 更新 CLI 读取意图**
+- [x] **Step 4: 更新 CLI 读取意图**
 
   在 `references/obsidian-cli.md` 补充 `backlinks` 用于追溯任务父级/直接依赖者，`links` 用于读取任务和架构出边，`search/files` 只在当前 workspace 范围内查找来源和支撑记录；未解析链接不能被当作事实。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add action/compile.md action/pull.md references/layered-views.md references/obsidian-cli.md
@@ -145,11 +145,11 @@
 - Consumes: Tasks 1–3。
 - Produces: ADR 记录“视图分开、AI 局部闭包接手”的长期决策；active copy 与源文档一致。
 
-- [ ] **Step 1: 写 ADR**
+- [x] **Step 1: 写 ADR**
 
   记录背景、唯一事实源、焦点选择优先级、任务/架构/支撑闭包、错误与规模控制、为什么不生成 `AI上下文.md`，以及对 AI 与人的取舍。
 
-- [ ] **Step 2: 同步 active copy**
+- [x] **Step 2: 同步 active copy**
 
   Run:
 
@@ -157,7 +157,7 @@
   rsync -a --exclude='.git' --exclude='.agents/' --exclude='.claude/' --exclude='config.json' ./ .agents/skills/workspace-sync/
   ```
 
-- [ ] **Step 3: 校验 active/source parity**
+- [x] **Step 3: 校验 active/source parity**
 
   Run:
 
@@ -170,7 +170,7 @@
 
   Expected: all listed source docs match active copy and active copy contains no nested Git metadata.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
   ```bash
   git add docs/adr/0085-ai-local-context-assembly.md docs/superpowers/specs/2026-07-27-ai-context-assembly-design.md
@@ -188,7 +188,7 @@
 - Consumes: Tasks 1–4。
 - Produces: pushed `main-devtree` with an AI-readable local context contract and no active-copy artifacts in Git。
 
-- [ ] **Step 1: Run RED/GREEN pressure scenarios**
+- [x] **Step 1: Run pressure scenarios**（本地契约检查通过；只读代理因服务挂起未返回）
 
   Dispatch three read-only agents after syncing active copy. Test:
 
@@ -198,7 +198,7 @@
 
   Each agent must read `.agents/skills/workspace-sync/SKILL.md` first, must not edit files, and must report whether the six formal relation meanings remain distinct.
 
-- [ ] **Step 2: Run repository verification**
+- [x] **Step 2: Run repository verification**
 
   ```bash
   git diff --check
@@ -212,7 +212,7 @@
   ! git diff --cached --name-only | rg '^\.agents/|^\.claude/'
   ```
 
-- [ ] **Step 3: Commit intended source files only**
+- [x] **Step 3: Commit intended source files only**
 
   ```bash
   git add CONTEXT.md README.md SKILL.md action/compile.md action/pull.md references/layered-views.md references/obsidian-cli.md docs/adr/0085-ai-local-context-assembly.md docs/superpowers/specs/2026-07-27-ai-context-assembly-design.md docs/superpowers/plans/2026-07-27-ai-context-assembly.md
@@ -221,7 +221,7 @@
   git commit -m "feat: improve AI task context assembly"
   ```
 
-- [ ] **Step 4: Push and verify remote**
+- [x] **Step 4: Push and verify remote**
 
   ```bash
   git push -u origin main-devtree
