@@ -15,11 +15,11 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 - 不同 workspace 的原始资料、图谱、任务、决策和历史默认完全隔离。
 - `workspace-sync` 自己的仓库就是个人开发知识库，不再维护第二份 workspace 快照或独立存储对象。
 
-本 skill 是一个以文档为接口的深模块：调用方只需要选择命令和当前 workspace，复杂的 Git 同步、项目现场采集、图谱编译和健康检查由下面的流程完成。
+本 skill 是一个以文档为接口的深模块：调用方只需要选择命令并建立当前会话的 workspace 边界，复杂的 Git 同步、项目现场采集、图谱编译和健康检查由下面的流程完成。
 
 ## 不可违反的规则
 
-1. **先选 workspace**：任何依赖知识库事实的操作都必须有当前 workspace。没有当前 workspace 时，进入新建流程并让用户输入名称；不猜测名称，不借用其他 workspace。
+1. **先建立当前会话 workspace 边界**：任何依赖知识库事实的操作都必须先解析当前会话缓存或显式 workspace，并按稳定 `workspace_id` 校验目标 `工作区.md`。没有会话边界时，停止读取知识库事实并要求用户选择；不读取全局 `current_workspace_*`，不猜测名称，也不借用其他 workspace。
 2. **workspace = iteration**：workspace 是开发迭代本身，不是一次会话、一个代码项目或一份临时总结。
 3. **硬隔离**：默认只读取和写入当前 workspace；不跨 workspace 自动加载、解析或创建图谱语义链接。
 4. **单一 Git 知识库**：配置只有一个个人开发知识库 Git 仓库。`pull`、`compile`、`push` 都直接作用于这个仓库，不复制出另一份 workspace 内容。
@@ -35,13 +35,13 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 | 命令 | 接口 | 作用 |
 | --- | --- | --- |
 | `config` | `/workspace-sync config` | 配置一个知识库 Git 仓库、分支、本地 Vault 路径和 Obsidian Vault 名称 |
-| `pull` | `/workspace-sync pull [工作区名称]` | 同步知识库 Git 仓库，选择/恢复当前 workspace，并打开图谱总览 |
-| `list` | `/workspace-sync list` | 从本地 Vault 列出 workspace；选择后设置本地当前指针并打开图谱总览，不自动 pull |
-| `migrate` | `/workspace-sync migrate` | 将当前 workspace 的旧英文目录、节点类型和链接安全迁移为中文布局 |
-| `compile` | `/workspace-sync compile` | 在 AI 对话中把当前 workspace 的原始资料或已确认会话结论编译为开发图谱 |
-| `push` | `/workspace-sync push` | 采集当前 workspace 关联项目现场，提交当前 workspace 的知识变更并推送 Git 远端 |
+| `pull` | `/workspace-sync pull [工作区名称]` | 同步知识库 Git 仓库，选择/恢复当前 workspace，并写入当前会话缓存后打开图谱总览 |
+| `list` | `/workspace-sync list` | 从本地 Vault 列出 workspace；选择后写入当前会话缓存并打开图谱总览，不自动 pull |
+| `migrate` | `/workspace-sync migrate [工作区名称]` | 将当前会话 workspace 的旧英文目录、节点类型和链接安全迁移为中文布局；可用显式 workspace 做单次覆盖 |
+| `compile` | `/workspace-sync compile [工作区名称]` | 在 AI 对话中把当前会话 workspace 的原始资料或已确认会话结论编译为开发图谱；可用显式 workspace 做单次覆盖 |
+| `push` | `/workspace-sync push [工作区名称]` | 采集当前会话 workspace 关联项目现场，提交当前 workspace 的知识变更并推送 Git 远端；可用显式 workspace 做单次覆盖 |
 
-`compile` 和 `migrate` 是 AI 对话中的工作指令，不要求独立 Shell 进程推断当前聊天内容。`migrate` 只在用户明确确认后执行。`push` 不自动触发 compile；用户要先编译再推送时，依次执行 `compile`、`push`。
+`compile` 和 `migrate` 是 AI 对话中的工作指令，不要求独立 Shell 进程推断当前聊天内容。`migrate` 只在用户明确确认后执行。`compile`、`push` 和 `migrate` 默认读取当前会话缓存，也支持显式 workspace 作为单次覆盖。`push` 不自动触发 compile；用户要先编译再推送时，依次执行 `compile`、`push`。
 
 ## 本地配置与仓库配置
 
@@ -65,22 +65,32 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 - `repository.branch`：知识库同步分支，默认 `main`。
 - `repository.path`：本机 Git clone，同时作为 Obsidian Vault 路径。
 - `obsidian.vault`：Obsidian CLI 使用的 Vault 名称；若 CLI 以路径定位，则使用 `repository.path`。
-- `state_file`：本地状态文件路径；为空时使用当前 CLI 状态目录下的 `workspace-sync/local-state.json`。
+- `state_file`：设备级状态文件路径；为空时使用当前 CLI 状态目录下的 `workspace-sync/local-state.json`。它只保存用户/设备级配置和 `project_paths`；会话缓存契约见 `references/session-state.md`。
 
 本地状态文件只保存设备本地信息，例如：
 
 ```json
 {
   "version": 1,
-  "current_workspace_id": "ws-20260727-abc123",
-  "current_workspace_name": "数据导入迭代",
   "project_paths": {
     "gitlab.example.com/team/api": "C:/work/api"
   }
 }
 ```
 
-`current_workspace_*` 和项目本地路径不能写入共享 Git 知识库；不同设备可以同时选择不同 workspace。
+旧 `current_workspace_*` 只作为历史字段保留并忽略；项目本地路径不能写入共享 Git 知识库。当前 workspace 与聚焦任务改为当前运行目录下的会话缓存，例如：
+
+```json
+{
+  "version": 1,
+  "session_id": "session-A",
+  "workspace_id": "ws-20260727-abc123",
+  "workspace_name": "数据导入迭代",
+  "focus_task_id": null
+}
+```
+
+缓存路径固定为 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`。会话启动时确定 `run_dir`；后续命令不随 Vault 路径迁移缓存。两个会话可以选择同一个 workspace，但不能共享同一个会话文件。
 
 ## 知识库仓库结构
 
@@ -200,8 +210,8 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 
 执行 `/workspace-sync compile` 时：
 
-1. 确认本地当前 workspace。不存在时要求用户输入名称并初始化 workspace 目录。
-2. 通过 Obsidian CLI 读取当前 workspace 的原始资料、图谱节点、候选和 `SCHEMA.md`；不读取其他 workspace。
+1. 先解析当前会话缓存或显式 workspace 覆盖，并按稳定 `workspace_id` 校验目标 `工作区.md`。缓存缺失、损坏、workspace 不存在、ID 不匹配或没有会话边界时，停止并要求用户选择；不读取旧用户级 `current_workspace_*`。
+2. 通过 Obsidian CLI 读取已校验 workspace 的原始资料、图谱节点、候选和 `SCHEMA.md`；不读取其他 workspace。
 3. 发现新增/变化的原始资料时，保留原文并编译受影响的节点、关系、冲突、待确认项和候选。原始资料为自由格式，不强行套模板。
 4. 如果没有原始资料，但当前会话已经形成用户明确确认的开发任务或规划结论，先生成一份新的原始资料 Markdown，再继续编译；没有确认的想法只能保留为待确认项，不能成为正式事实。
 5. 只把明确陈述写入当前图谱；“可能、考虑、待确认”等不确定内容进入待确认项。原始资料冲突时保留双方，未冲突内容仍可增量编译。
@@ -209,17 +219,18 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 7. 通过 Obsidian CLI 重建 `图谱/总览.md`、`图谱/索引.md` 和 `图谱/视图/` 下的分层视图；先验证任务树根、唯一父级、可达性和无环性，再生成 `开发任务.md`。架构图只读取架构关系，`开发路线.md` 只生成架构对象到解决任务的桥接索引。对当前 workspace `图谱/节点/` 页面执行链接健康检查；未解析链接、孤立节点、无出链节点、未定位任务和任务树 warning 不自动创建占位节点、补父级或修复人工页面。
 8. 健康问题使用稳定指纹追踪生命周期；只有首次出现、状态变化或解决时记录 `图谱/日志.md`。没有知识或健康状态变化时不创建空 commit。
 9. 有实际变更时创建本地 Git commit；warning 不阻断 commit。发生 CLI/写入等执行错误时不自动 commit，并报告现场。
-10. compile 不推送远端；需要跨设备同步时再执行 `push`。
+10. compile 不推送远端；需要跨设备同步时再执行 `push`。显式 workspace 覆盖成功后可以更新当前会话缓存，但不能更新用户级指针。
 
 ## push 工作流
 
 `push` 只作用于当前 workspace：
 
-1. 读取当前 workspace 的正式项目关联，并把当前 cwd 中发现但未关联的仓库列为候选，要求确认；不扫描整台机器。
-2. 对已确认项目采集规范化 Git remote、当前分支、HEAD、upstream 和 dirty 状态。dirty 项目仍允许保存知识库，但只记录 dirty，不复制代码。
-3. 检查知识库 Git 远端变化；需要时先 fetch/rebase，冲突就停止，不 force push。
-4. 只把当前 workspace 目录的知识库变更加入本次提交。其他 workspace 或根目录 `SCHEMA.md` 的变化单独警告，不静默带入。
-5. 提交并推送当前知识库 Git 分支。push 不自动 compile。
+1. 先解析当前会话缓存或显式 workspace 覆盖，并按稳定 `workspace_id` 校验目标 workspace。没有有效会话边界时安全停止；不读取用户级 `current_workspace_*`。
+2. 读取当前 workspace 的正式项目关联，并把当前 cwd 或当前 `run_dir` 中发现但未关联的仓库列为候选，要求确认；不扫描整台机器。
+3. 对已确认项目采集规范化 Git remote、当前分支、HEAD、upstream 和 dirty 状态。dirty 项目仍允许保存知识库，但只记录 dirty，不复制代码。
+4. 检查知识库 Git 远端变化；需要时先 fetch/rebase，冲突就停止，不 force push。
+5. 只把当前 workspace 目录的知识库变更加入本次提交。其他 workspace 或根目录 `SCHEMA.md` 的变化单独警告，不静默带入。
+6. 提交并推送当前知识库 Git 分支。push 不自动 compile。显式 workspace 覆盖成功后可以更新当前会话缓存，但不能更新用户级指针。
 
 ## pull 工作流
 
@@ -228,19 +239,19 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 1. 检查本地知识库是否有未提交变更；有则停止并要求先处理。
 2. fetch 并以安全方式整合配置分支；冲突停止，不覆盖本地图谱。
 3. 若指定 workspace，选择它；否则列出本地 workspace 并让用户选择。没有 workspace 时进入新建流程并让用户命名。
-4. 设置本地当前 workspace 指针，并通过 Obsidian CLI 打开 Vault 和该 workspace 的 `图谱/总览.md`。
-5. 按记录的项目 remote/分支/HEAD 尝试恢复本地干净代码项目；dirty、路径缺失或 commit 缺失时跳过并报告。
+4. 将稳定 `workspace_id`、显示名称和当前 `focus_task_id` 写入当前会话缓存，并通过 Obsidian CLI 打开 Vault 和该 workspace 的 `图谱/总览.md`。
+5. 按记录的项目 remote/分支/HEAD 尝试恢复本地干净代码项目；路径解析顺序为用户明确提供的路径、当前 cwd 或 `run_dir` 中匹配 remote 的仓库、用户级 `project_paths`；无法唯一定位、dirty、路径缺失或 commit 缺失时跳过并报告。
 
 ## list 工作流
 
-`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户选择后设置本地当前指针并打开 `图谱/总览.md`。需要远端变化时明确执行 `pull`。
+`list` 只查看本地 Vault 中的 workspace 文件夹，不自动 pull。展示 workspace 名称、生命周期和最近更新时间；用户选择后把稳定 `workspace_id`、显示名称和当前 `focus_task_id` 写入当前会话缓存，并打开 `图谱/总览.md`。需要远端变化时明确执行 `pull`。
 
 ## 新 AI 会话启动与局部上下文装配
 
-新会话开始工作前必须确认当前 workspace。上下文按以下固定顺序装配：
+新会话开始工作前必须先解析当前会话缓存或接受显式 workspace。上下文按以下固定顺序装配：
 
-1. **建立边界**：读取根 `SCHEMA.md`、当前 workspace 的 `工作区.md` 和 `图谱/总览.md`。如果 workspace 未选择，停止读取知识库事实，先要求选择或新建 workspace。
-2. **选择焦点**：焦点优先级固定为“用户明确指定 > 当前对话明确确认 > `总览.md` 标记的活动任务”。焦点必须是当前 workspace 中已确认的正式 `任务` 节点；不存在、类型不对或关系不健康时报告 warning，不自动创建、挂接或修复。没有可确认焦点时，只展示活动任务摘要并要求选择，不按名称、项目、同级任务或最近修改时间猜测。
+1. **建立边界**：读取 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json` 或显式 workspace 覆盖，并用 `workspace_id` 校验目标 `工作区.md`。缓存缺失、损坏、workspace 不存在、ID 不匹配、没有 `session_id` 或没有 `run_dir` 时，停止读取知识库事实并要求用户重新选择；不回退到用户级 `current_workspace_*`。
+2. **选择焦点**：焦点优先级固定为“用户明确指定 > 当前会话缓存中的 `focus_task_id` > 当前对话明确确认 > `总览.md` 标记的活动任务”。焦点必须是当前 workspace 中已确认的正式 `任务` 节点；不存在、类型不对或关系不健康时报告 warning，不自动创建、挂接或修复。没有可确认焦点时，只展示活动任务摘要并要求选择，不按名称、项目、同级任务或最近修改时间猜测。
 3. **读取任务闭包**：以焦点任务为种子读取其正文、状态、来源和关系；沿 `分解为` 反向追溯到 `任务-开发总任务` 的完整父级链，读取直接子任务、直接依赖，以及反向依赖它的未完成直接依赖者。`分解为` 只表达任务父子，`依赖` 只表达跨分支前置条件；不把依赖当父级，不默认递归二阶依赖或加载完整任务树。
 4. **读取架构闭包**：沿焦点任务的 `解决`、`涉及系统` 读取缺口、目标能力和系统；沿系统 `包含` 读取架构祖先和直接子系统；读取邻域系统的 `提供` 能力、`存在缺口`，以及明确的 `需要联调` 关系和关联任务入口。没有 `解决` 或 `涉及系统` 时报告“任务缺少架构定位”，不按名称或页面邻近关系猜测。
 5. **读取直接支撑**：只读取焦点任务或其架构邻域直接关联的 `图谱/说明/项目/`、`图谱/说明/决策/` 和 `图谱/说明/联调/` 页面。节点 `source_refs` 指向的原始资料按需展开；完整原始资料、历史和无关 workspace 只在需要追溯时读取。
@@ -251,13 +262,14 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 
 ## 项目现场恢复规则
 
-项目支撑记录存储规范化 Git remote；本机路径只存放在本地状态文件。路径解析顺序为已保存映射、当前 cwd、用户明确提供的路径；不扫描所有代码仓库。pull 只在代码工作区干净且目标 commit 可用时切分支/恢复 HEAD，绝不强制覆盖未提交代码。
+项目支撑记录存储规范化 Git remote；本机路径只存放在设备级状态文件。路径解析顺序为用户明确提供的路径、当前 cwd 或 `run_dir` 中匹配 remote 的仓库、用户级 `project_paths`、要求用户确认；不扫描所有代码仓库。pull 只在代码工作区干净且目标 commit 可用时切分支/恢复 HEAD，绝不强制覆盖未提交代码。
 
 ## 相关文档
 
 - 命令流程：`action/config.md`、`action/list.md`、`action/pull.md`、`action/compile.md`、`action/push.md`
 - 迁移流程：`action/migrate.md`
 - Git 知识库仓库：`references/setup.md`、`references/git-repository.md`
+- 会话状态契约：`references/session-state.md`
 - Obsidian CLI：`references/obsidian-cli.md`
 - workspace 布局：`references/workspace-layout.md`
 - 分层视图：`references/layered-views.md`
