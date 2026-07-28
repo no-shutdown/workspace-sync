@@ -105,6 +105,7 @@ _避免_：脱离会话的普通 Shell 命令、只做文件复制的同步命�
 
 **当前工作空间（Current Workspace）**：当前会话默认绑定的 workspace 边界，是 `list`、`pull`、`compile`、`push` 和 `migrate` 读取知识库事实时的唯一默认目标。它来自当前会话缓存，或在本次命令中由显式 workspace 做单次覆盖；不是用户级全局指针，也不会写入共享知识库。
 当当前工作空间不存在且又没有显式 workspace 时，只有 `list`/`pull` 会引导用户选择或新建 workspace；`compile`、`push`、`migrate` 不自行进入选择或创建流程，必须等待读取到有效的当前会话缓存，或由用户显式提供 workspace 覆盖，否则安全停止。没有稳定 `session_id`/`run_dir` 时，显式 workspace 仍只对本次操作生效，不写会话缓存，后续命令需再次显式指定。
+多个并发会话可以在同一 `run_dir` 下使用不同的 `session_id`，各自绑定不同的 workspace 选择；每个会话独立读写 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`，互不覆盖。`.workspace-sync-cache/` 是本地运行时状态，其 Git ignore 规则由用户自行管理；workspace-sync 不修改任何 Git ignore 文件。
 _避免_：用户级全局 workspace、根据代码仓库自动猜测的工作空间、自动生成含义不明的名称
 
 **工作空间创建（Workspace Creation）**：在没有当前工作空间时，根据用户输入的中文名称初始化一个新的工作空间目录及其知识库结构，并将它设置为当前工作空间。创建不依赖已有代码项目。
