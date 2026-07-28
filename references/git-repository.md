@@ -49,5 +49,5 @@ Git 知识库仓库路径、分支和 Obsidian Vault 名称写入本机配置；
 ```
 
 - `config` 只配置知识库连接与本地 Vault 信息，不选择 workspace。
-- 会话缓存只保存 `workspace_id`、`workspace_name` 和 `focus_task_id` 等会话边界，不进入共享知识库 Git，也不写入 Obsidian。
-- 旧 `current_workspace_*` 只作为历史字段保留并忽略；不同设备、不同会话和同一目录下的并行 worktree 都可以保留各自的 workspace 选择与项目路径解析结果。
+- 会话缓存只保存 `workspace_id`、`workspace_name` 和 `focus_task_id` 等会话边界，不进入共享知识库 Git，也不写入 Obsidian；它从不保存 `project_paths` 或项目路径解析结果。
+- 旧 `current_workspace_*` 只作为历史字段保留并忽略。项目路径解析只在运行时进行，按明确路径、当前 `run_dir`/cwd、设备级 `project_paths`、要求用户确认的顺序处理；设备级映射不因会话选择自动改写。
