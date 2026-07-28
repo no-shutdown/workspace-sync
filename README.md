@@ -20,19 +20,19 @@
 /workspace-sync config
 /workspace-sync pull [工作区名称]
 /workspace-sync list
-/workspace-sync migrate
-/workspace-sync compile
-/workspace-sync push
+/workspace-sync migrate [工作区名称]
+/workspace-sync compile [工作区名称]
+/workspace-sync push [工作区名称]
 ```
 
 - `config`：配置个人开发知识库 Git 仓库。
-- `pull`：同步仓库、选择/恢复 workspace，并打开接手入口。
-- `list`：列出本地 workspace，选择后设置当前 workspace；不自动同步远端。
+- `pull`：同步仓库、选择/恢复当前会话 workspace，并打开接手入口。
+- `list`：列出本地 workspace，选择后写入当前会话缓存；不自动同步远端。
 - `migrate`：将已有 workspace 的旧英文目录、类型和链接迁移为中文布局；执行前需要确认。
-- `compile`：把当前 workspace 的原始资料或已确认会话结论编译成开发图谱。
-- `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端。
+- `compile`：把当前会话 workspace 的原始资料或已确认会话结论编译成开发图谱；也可显式传 workspace 名称做单次覆盖。
+- `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端；也可显式传 workspace 名称做单次覆盖。
 
-每次涉及知识库事实的工作都必须先有当前 workspace。没有时会要求输入名称并新建；不自动猜测，也不跨 workspace 读取。
+每次涉及知识库事实的工作都必须先有当前会话 workspace。没有时会要求输入名称并新建，或在 `compile`/`push`/`migrate` 中显式指定；不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；workspace-sync 会把选择写到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`，不会回退到用户级全局指针。
 
 ## 仓库结构
 
@@ -118,5 +118,9 @@ cd workspace-sync
 ```text
 /workspace-sync pull
 ```
+
+之后的 `list`/`pull` 选择只绑定当前会话；如果运行环境无法提供稳定 `session_id` 或 `run_dir`，显式 workspace 只对本次命令生效，后续命令仍需再次指定。`project_paths` 仍保留在设备级状态文件中，用于代码仓库路径恢复。
+
+`.workspace-sync-cache/` 是否加入 `.gitignore` 或 `.git/info/exclude` 由用户自行决定；workspace-sync 不自动修改任何 Git ignore 文件。
 
 安装脚本只安装 skill 文件，不创建或复制个人开发知识库内容。

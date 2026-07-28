@@ -38,6 +38,13 @@ obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/
 
 ## 局部上下文查询意图
 
+开始任何 links/backlinks/files/search/read 查询前，必须先建立当前会话 workspace 边界：
+
+- 默认读取 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；
+- 或接受显式 workspace 作为单次覆盖；
+- 缓存缺失、损坏、workspace 不存在、稳定 ID 不匹配，或运行环境缺少 `session_id` / `run_dir` 且又没有显式 workspace 时，都必须停止读取知识库事实；
+- 不回退到用户级 `current_workspace_*`，也不从 Vault 全局结果猜测当前 workspace。
+
 上下文装配时，查询结果必须限定在当前 workspace，并按关系语义使用：
 
 - `links path=<焦点任务>`：读取焦点任务正文中的出边，识别 `分解为`、`依赖`、`解决` 和 `涉及系统` 的直接端点；再对端点页面执行 `links`，读取架构的 `目标能力`、`提供`、`存在缺口`、`包含` 和 `需要联调`。
@@ -49,7 +56,7 @@ obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/
 
 ## 读取边界
 
-每次调用显式带当前 workspace 路径或在读取结果后按 workspace 根目录过滤。禁止用 Vault 全局搜索结果直接写入当前 workspace；跨 workspace 的结果只能被忽略或作为用户显式请求的普通参考。
+每次调用显式带当前 workspace 路径或在读取结果后按 workspace 根目录过滤。没有当前会话 workspace 时，停止读取知识库事实，不执行 Vault 范围内的 links/backlinks/files/search 推断。禁止用 Vault 全局搜索结果直接写入当前 workspace；跨 workspace 的结果只能被忽略或作为用户显式请求的普通参考。
 
 ## 写入边界
 

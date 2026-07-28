@@ -103,9 +103,9 @@ _避免_：单纯总结、一次性导入、只生成任务清单
 **知识库编译命令（Knowledge Base Compile Command）**：在 AI 对话中执行的一条工作指令，用于针对已选择的工作空间读取原始开发资料，或在资料缺失时从当前会话中已确认的开发任务生成原始资料，然后完成图谱编译。
 _避免_：脱离会话的普通 Shell 命令、只做文件复制的同步命令
 
-**当前工作空间（Current Workspace）**：沿用 `push` 和 `pull` 已建立的工作空间上下文，是当前会话及后续 `compile` 默认操作的唯一目标。`compile` 不创建第二套工作空间选择机制。
-当当前工作空间不存在时，操作进入新建流程并要求用户输入名称；新建完成后该 workspace 立即成为当前工作空间。
-_避免_：编译专用工作空间、根据代码仓库自动猜测的工作空间、自动生成含义不明的名称
+**当前工作空间（Current Workspace）**：当前会话默认绑定的 workspace 边界，是 `list`、`pull`、`compile`、`push` 和 `migrate` 读取知识库事实时的唯一默认目标。它来自当前会话缓存，或在本次命令中由显式 workspace 做单次覆盖；不是用户级全局指针，也不会写入共享知识库。
+当当前工作空间不存在且又没有显式 workspace 时，操作进入新建流程并要求用户输入名称；新建完成后该 workspace 成为当前会话 workspace。
+_避免_：用户级全局 workspace、根据代码仓库自动猜测的工作空间、自动生成含义不明的名称
 
 **工作空间创建（Workspace Creation）**：在没有当前工作空间时，根据用户输入的中文名称初始化一个新的工作空间目录及其知识库结构，并将它设置为当前工作空间。创建不依赖已有代码项目。
 _避免_：隐式创建、借用其他工作空间、用代码仓库名代替用户命名
@@ -116,11 +116,14 @@ _避免_：文件夹名作为唯一身份、改名即新建 workspace、按路�
 **工作空间元数据页（Workspace Metadata Page）**：workspace 根目录的 `工作区.md`，保存 workspace ID、名称、生命周期和创建/更新时间等自身信息。它不是开发图谱节点，也不替代 `图谱/总览.md`。
 _避免_：用总览保存身份、用目录名保存全部元数据、把 workspace 元数据当任务
 
-**本地当前工作空间指针（Local Current Workspace Pointer）**：保存在当前设备或会话中的工作空间选择，不属于知识库事实，也不写入共享 Git 仓库。它允许不同设备同时以不同 workspace 工作。
-_避免_：全局当前 workspace、写入图谱的选择状态
+**会话 workspace 状态缓存（Session Workspace State Cache）**：保存当前会话 workspace 与焦点任务选择的 JSON 文件，固定路径为 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`。它只保存 `version`、`session_id`、`workspace_id`、`workspace_name` 和 `focus_task_id`，不写入共享知识库、Obsidian 页面或用户级 `project_paths`。
+_避免_：共享 current.json、写入图谱的选择状态、把会话缓存放进知识库事实层
 
-**会话启动上下文（Session Bootstrap Context）**：新 AI 会话在当前工作空间中建立的最小可靠背景，包括根 `SCHEMA.md`、`工作区.md`、`总览.md`；再按焦点优先级装配局部上下文闭包。焦点优先级固定为：用户明确指定 > 当前对话明确确认 > 总览标记的活动任务；没有可确认焦点时只展示活动任务摘要并等待选择。原始资料、完整历史和无关 workspace 按需读取。
-_避免_：只加载单一 summary、按最近修改猜焦点、默认加载全部原始资料、无工作空间启动
+**本地当前工作空间指针（Local Current Workspace Pointer）**：当前 workspace 的默认载体已经收窄为当前运行目录下的会话缓存，而不是用户级共享 state 文件。旧 `current_workspace_id`、`current_workspace_name` 只作为历史字段保留并忽略；没有 `session_id`/`run_dir` 时，只允许显式 workspace 的单次操作，不创建全局 fallback。
+_避免_：用户级全局 current workspace、自动回退旧 state、写入图谱的选择状态
+
+**会话启动上下文（Session Bootstrap Context）**：新 AI 会话先读取当前会话缓存，或接受显式 workspace 作为单次覆盖；边界校验通过后，再在该 workspace 中建立最小可靠背景：根 `SCHEMA.md`、`工作区.md`、`总览.md`，然后按焦点优先级装配局部上下文闭包。焦点优先级固定为：用户明确指定 > 会话缓存中的 `focus_task_id` > 当前对话明确确认 > 总览标记的活动任务；没有可确认焦点时只展示活动任务摘要并等待选择。缓存缺失、损坏、workspace 不存在、稳定 ID 不匹配，或在没有显式 workspace 时缺少 `session_id`/`run_dir`，都必须停止读取知识库事实。原始资料、完整历史和无关 workspace 按需读取。
+_避免_：只加载单一 summary、按最近修改猜焦点、默认加载全部原始资料、无工作空间启动、回退旧全局指针
 
 **会话聚焦任务（Session Focus Task）**：本次 AI 会话可选的工作焦点。焦点任务必须是当前 workspace 中已确认的正式 `任务` 节点。指定后优先加载该任务的局部上下文闭包；不存在、类型不对或关系不健康时报告 warning，不自动创建、挂接或修复。未指定时不自动猜测。
 _避免_：修改任务状态的全局焦点、用名称猜任务、把依赖当父级
@@ -137,8 +140,8 @@ _避免_：每个 workspace 一个 Vault、Obsidian Vault 作为事实来源
 **Vault CLI 操作边界（Vault CLI Boundary）**：workspace-sync 对 Vault 内 Markdown 的读取、创建、修改、搜索、链接查询和打开均通过 Obsidian CLI；Git 命令只处理仓库版本和远端同步，不承担 Vault 内容语义。
 _避免_：自定义 Vault API、第二套文件索引、Git 直接解释 Wiki 语义
 
-**知识库 Git 配置（Knowledge Repository Configuration）**：当前设备用于访问个人开发知识库的配置，包括同一个 Git 远端、分支、本地 Vault 路径、认证方式和本地 workspace 指针。不再按 Local/GitHub/GitLab/MinIO 切换 workspace backend。
-_避免_：多 backend workspace 存储、远端 workspace 快照配置
+**知识库 Git 配置（Knowledge Repository Configuration）**：当前设备用于访问个人开发知识库的配置，包括同一个 Git 远端、分支、本地 Vault 路径、认证方式，以及指向设备级状态文件的 `state_file`。该配置只负责知识库连接和本机访问；`state_file` 只保存 `project_paths` 等设备级映射，不选择 workspace，也不回退到用户级全局指针。
+_避免_：多 backend workspace 存储、远端 workspace 快照配置、在 config 中保存当前 workspace
 
 **设备本地 Vault 路径（Device-local Vault Path）**：某台设备上知识库 Git 仓库的本地目录，只用于定位该设备的 Obsidian Vault，不参与跨设备知识库身份匹配，也不写入共享知识内容。
 _避免_：共享绝对路径、用源设备路径恢复、路径作为仓库身份
@@ -146,11 +149,11 @@ _避免_：共享绝对路径、用源设备路径恢复、路径作为仓库身
 **接手打开（Handoff Open）**：pull 完成知识库仓库恢复后，通过 Obsidian CLI 打开 Vault，并打开当前 workspace 的 `图谱/总览.md`，使用户和 AI 立即进入可接手状态。
 _避免_：只拉取文件不进入 workspace、打开旧 summary、自动打开其他 workspace
 
-**工作空间列表（Workspace Listing）**：通过 Obsidian CLI 查看当前本地 Vault 中的 workspace 文件夹，并在用户选择后设置本地当前 workspace。它是本地选择操作，不负责远端 Git 同步。
-_避免_：远端快照列表、按代码项目列 workspace、list 自动 pull
+**工作空间列表（Workspace Listing）**：通过 Obsidian CLI 查看当前本地 Vault 中的 workspace 文件夹，并在用户选择后写入当前会话缓存。它是本地选择操作，不负责远端 Git 同步；缺少 `session_id` 或 `run_dir` 时，这次选择只对当前命令生效，不创建用户级替代状态。
+_避免_：远端快照列表、按代码项目列 workspace、list 自动 pull、写用户级全局 current workspace
 
-**知识库同步操作（Knowledge Base Sync Operation）**：直接作用于个人开发知识库 Git 仓库的 `pull`、`compile` 和 `push` 操作。它们共享同一个当前工作空间上下文，不再在另一个存储系统中生成交接副本。
-_避免_：代码项目同步、双重 workspace 同步
+**知识库同步操作（Knowledge Base Sync Operation）**：直接作用于个人开发知识库 Git 仓库的 `pull`、`compile`、`push` 和会话边界迁移命令 `migrate`。它们默认共享同一个当前会话 workspace 上下文，也接受显式 workspace 作为单次覆盖；没有稳定会话上下文时不回退到用户级全局指针，不在另一个存储系统中生成交接副本。
+_避免_：代码项目同步、双重 workspace 同步、无会话边界的全局 fallback
 
 **编译与同步分离（Compile-Sync Separation）**：compile 负责理解原始资料并更新图谱，push 负责提交和同步已经产生的知识库变更；push 不自动触发新的图谱编译。
 _避免_：同步时隐式改写图谱、把 push 当作 compile
