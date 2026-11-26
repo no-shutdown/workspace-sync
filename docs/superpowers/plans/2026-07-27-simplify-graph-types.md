@@ -17,7 +17,7 @@
 - 任务通过 `解决` → `缺口` → `存在缺口` → `系统` 定位；没有缺口链路的任务使用 `涉及系统`。
 - 能力与缺口不能仅凭名称合并；重复只生成候选，不自动删除、覆盖或合并。
 - 不根据没有 `提供` 关系自动推断能力缺失；任务和缺口状态不能由代码提交或子任务完成静默改变。
-- Obsidian CLI 仍是 Vault 内容接口；compile/migrate 只作用于当前 workspace。
+- Obsidian CLI 仍是 Vault 内容接口；compile 只作用于当前 workspace。
 - 本次修改只更新 skill 文档和 active install copy，不迁移用户实际 Vault 内容。
 - 用户已明确要求完成后自动 commit & push；禁止 force push，远端冲突必须停止并报告。
 
@@ -44,7 +44,7 @@ GREEN 阶段必须用同一组压力场景读取修改后的 active `SKILL.md` �
 - Modify: `templates/SCHEMA.md.example`
 
 **Interfaces:**
-- Produces the canonical four-type vocabulary, support-record layout, relation names, and current-position rules consumed by compile/migrate/view documentation.
+- Produces the canonical four-type vocabulary, support-record layout, relation names, and current-position rules consumed by compile and view documentation.
 
 - [ ] **Step 1: Replace the formal node vocabulary**
 
@@ -74,7 +74,6 @@ GREEN 阶段必须用同一组压力场景读取修改后的 active `SKILL.md` �
 **Files:**
 - Modify: `action/compile.md`
 - Modify: `references/layered-views.md`
-- Modify: `action/migrate.md`
 - Modify: `action/pull.md`
 - Modify: `action/push.md`
 - Modify: `action/list.md`
@@ -84,7 +83,7 @@ GREEN 阶段必须用同一组压力场景读取修改后的 active `SKILL.md` �
 
 **Interfaces:**
 - Consumes Task 1's type and relation contract.
-- Produces the compile/migrate behavior that future agents use to create nodes, calculate current position, render views, and preserve old records.
+- Produces the compile and view rules for creating nodes, calculating current position, and rendering views.
 
 - [ ] **Step 1: Update compile classification**
 
@@ -111,7 +110,7 @@ GREEN 阶段必须用同一组压力场景读取修改后的 active `SKILL.md` �
   git diff --check
   ```
 
-  Expected: compile/migrate/view docs agree on the same four types, support paths, relation names, and generated-page names.
+  Expected: compile and view docs agree on the same four types, support paths, relation names, and generated-page names.
 
 ### Task 3: Record the accepted architecture decision
 
@@ -184,7 +183,7 @@ GREEN 阶段必须用同一组压力场景读取修改后的 active `SKILL.md` �
   Stage the explicit source paths, design/plan/ADR documents, and no `.agents/` or `.claude/` paths:
 
   ```bash
-  git add SKILL.md README.md CONTEXT.md templates/SCHEMA.md.example action/compile.md action/list.md action/migrate.md action/pull.md action/push.md references/layered-views.md references/obsidian-cli.md references/project-state.md references/workspace-layout.md docs/adr/0083-simplify-graph-types-and-support-records.md docs/superpowers/specs/2026-07-27-simplify-graph-types-design.md docs/superpowers/plans/2026-07-27-simplify-graph-types.md
+  git add SKILL.md README.md CONTEXT.md templates/SCHEMA.md.example action/compile.md action/list.md action/pull.md action/push.md references/layered-views.md references/obsidian-cli.md references/project-state.md references/workspace-layout.md docs/adr/0083-simplify-graph-types-and-support-records.md docs/superpowers/specs/2026-07-27-simplify-graph-types-design.md docs/superpowers/plans/2026-07-27-simplify-graph-types.md
   git diff --cached --check
   git commit -m "refactor: simplify graph node types"
   ```

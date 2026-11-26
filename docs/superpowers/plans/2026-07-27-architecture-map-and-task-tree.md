@@ -108,7 +108,6 @@ GREEN 阶段使用同类场景读取 active skill，检查四类正式类型、�
 ### Task 3: Update migration and command references
 
 **Files:**
-- Modify: `action/migrate.md`
 - Modify: `action/list.md`
 - Modify: `action/pull.md`
 - Modify: `action/push.md`
@@ -133,7 +132,7 @@ GREEN 阶段使用同类场景读取 active skill，检查四类正式类型、�
 - [x] **Step 4: Verify migration references**
 
   ```bash
-  rg -n '任务清单|开发任务|任务-开发总任务|分解为|依赖' action/migrate.md action/list.md action/pull.md action/push.md references/obsidian-cli.md
+  rg -n '任务清单|开发任务|任务-开发总任务|分解为|依赖' action/list.md action/pull.md action/push.md references/obsidian-cli.md
   git diff --check
   ```
 
@@ -196,7 +195,7 @@ GREEN 阶段使用同类场景读取 active skill，检查四类正式类型、�
 - [x] **Step 4: Commit only intended feature files**
 
   ```bash
-  git add SKILL.md README.md CONTEXT.md templates/SCHEMA.md.example action/compile.md action/list.md action/migrate.md action/pull.md action/push.md references/layered-views.md references/obsidian-cli.md references/workspace-layout.md docs/adr/0084-architecture-map-and-rooted-task-tree.md docs/superpowers/specs/2026-07-27-architecture-map-and-task-tree-design.md docs/superpowers/plans/2026-07-27-architecture-map-and-task-tree.md
+  git add SKILL.md README.md CONTEXT.md templates/SCHEMA.md.example action/compile.md action/list.md action/pull.md action/push.md references/layered-views.md references/obsidian-cli.md references/workspace-layout.md docs/adr/0084-architecture-map-and-rooted-task-tree.md docs/superpowers/specs/2026-07-27-architecture-map-and-task-tree-design.md docs/superpowers/plans/2026-07-27-architecture-map-and-task-tree.md
   git diff --cached --check
   git commit -m "feat: add rooted development task tree"
   ```

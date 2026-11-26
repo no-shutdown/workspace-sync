@@ -108,7 +108,7 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 
 先按现有安全 Git 流程同步知识库。指定名称时绑定该 workspace；未指定时让用户选择。绑定时只有在缓存的 `workspace_id` 等于所选 workspace 且缓存焦点已验证为该 workspace 的正式 `任务` 时，才保留 `focus_task_id`；切换 workspace 时清为 `null`，除非本次命令明确提供有效的替代焦点。无效焦点清除并报告 warning，不能跨 workspace 搬运或推断。同步和选择完成后，仅在 `session_id`、`run_dir` 均有效且会话缓存可写时更新当前会话缓存；否则本次操作仅作为一次性、非持久化操作，不写任何回退状态，并打开接手入口。
 
-#### `compile`、`push`、`migrate`
+#### `compile`、`push`
 
 - 默认只读取当前会话缓存。
 - 缓存不存在、无法解析、workspace 不存在或 workspace 身份校验失败时停止并要求选择。
@@ -170,7 +170,7 @@ workspace 内容仍然属于共享知识库 Git 仓库；需要隔离的是“�
 
 ## 验收标准
 
-- 同一运行目录的两个会话可以分别绑定 workspace A 和 workspace B；两者执行 `compile`、`push`、`migrate` 时不互相读取或修改默认 workspace。
+- 同一运行目录的两个会话可以分别绑定 workspace A 和 workspace B；两者执行 `compile`、`push` 时不互相读取或修改默认 workspace。
 - 新会话没有缓存时不读取旧全局 workspace，必须通过 `list`、`pull` 或显式指定 workspace 建立边界。
 - 旧 `local-state.json` 的 `current_workspace_*` 不再生效，`project_paths` 仍可用于默认路径解析。
 - 缓存缺失、JSON 损坏、workspace 被删除、ID 不匹配或 session ID 非法时安全停止，不猜测、不回退到其他会话。

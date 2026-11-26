@@ -1,6 +1,6 @@
 ---
 name: workspace-sync
-description: 个人开发知识库与跨设备工作空间管理。知识库是一个用户配置的 Git 仓库，仓库内每个文件夹都是相互隔离的开发迭代（workspace）。支持 config、pull、list、compile、push、html 和 migrate；html 打开本地只读页面，compile 将规划工具或当前会话中的原始开发资料整理成 Karpathy LLM Wiki 风格的开发任务图谱。用户提到 workspace-sync、换设备继续开发、选择迭代、个人开发知识库、开发任务图谱或 compile 时使用本 skill。
+description: 个人开发知识库与跨设备工作空间管理。知识库是一个用户配置的 Git 仓库，仓库内每个文件夹都是相互隔离的开发迭代（workspace）。支持 config、pull、list、compile、push 和 html；html 打开本地只读页面，compile 将规划工具或当前会话中的原始开发资料整理成 Karpathy LLM Wiki 风格的开发任务图谱。用户提到 workspace-sync、换设备继续开发、选择迭代、个人开发知识库、开发任务图谱或 compile 时使用本 skill。
 ---
 
 # workspace-sync
@@ -37,12 +37,11 @@ description: 个人开发知识库与跨设备工作空间管理。知识库是�
 | `config` | `/workspace-sync config` | 配置一个知识库 Git 仓库、分支、本地知识库路径及可选的 Obsidian 设置 |
 | `pull` | `/workspace-sync pull [工作区名称]` | 同步知识库 Git 仓库并选择/恢复当前 workspace；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时绑定当前会话缓存，否则显式用户选择仅本次生效、非持久化，不写用户级或全局回退状态；启用且可用时通过 Obsidian 打开总览 |
 | `list` | `/workspace-sync list` | 从本地 Vault 列出 workspace，不自动 pull；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存，否则显式用户选择仅本次生效、非持久化，不写用户级或全局回退状态；启用且可用时通过 Obsidian 打开总览 |
-| `migrate` | `/workspace-sync migrate [工作区名称]` | 将当前会话 workspace 的旧英文目录、节点类型和链接安全迁移为中文布局；可用显式 workspace 做单次覆盖 |
 | `compile` | `/workspace-sync compile [工作区名称]` | 在 AI 对话中把当前会话 workspace 的原始资料或已确认会话结论编译为开发图谱并更新本地 HTML；可用显式 workspace 做单次覆盖 |
 | `html` | `/workspace-sync html [工作区名称]` | 从本地 Markdown 生成只读 HTML 并在默认浏览器打开；使用已校验的当前会话或明确指定的 workspace |
 | `push` | `/workspace-sync push [工作区名称]` | 采集当前会话 workspace 关联项目现场，提交当前 workspace 的知识变更并推送 Git 远端；可用显式 workspace 做单次覆盖 |
 
-`compile` 和 `migrate` 是 AI 对话中的工作指令，不要求独立 Shell 进程推断当前聊天内容。`migrate` 只在用户明确确认后执行。`compile`、`push`、`migrate` 和 `html` 默认读取已验证的当前会话缓存，也支持显式 workspace 作为单次覆盖。`push` 不自动触发 compile；用户要先编译再推送时，依次执行 `compile`、`push`。
+`compile` 是 AI 对话中的工作指令，可读取当前对话中的已确认结论。`compile`、`push` 和 `html` 默认读取已验证的当前会话缓存，也支持显式 workspace 作为单次覆盖。`push` 不自动触发 compile；用户要先编译再推送时，依次执行 `compile`、`push`。
 
 ## 本地配置与仓库配置
 
@@ -137,7 +136,7 @@ workspace 根目录的元数据页，至少保存稳定 `workspace_id`、名称�
 
 正式开发图谱节点。正式类型只有：系统、能力、缺口、任务。项目和决策属于 `图谱/说明/` 下的支撑记录，不进入正式节点索引和主 Mermaid 图；联调使用系统之间的“需要联调”关系。
 
-`图谱/说明/项目/`、`图谱/说明/决策/` 和 `图谱/说明/联调/` 下的页面是支撑记录，不使用正式节点 `type`；目录语义就是它们的类别。遇到 `项目`、`决策`、`联调点`、`integration`、`epic`、`architecture`、`development-task` 等未知或旧类型时，不得把它们当成第五类正式节点或 `task_role` 值；保留原页面并迁移到支撑记录或 `图谱/候选/`，等待明确映射。
+`图谱/说明/项目/`、`图谱/说明/决策/` 和 `图谱/说明/联调/` 下的页面是支撑记录，不使用正式节点 `type`；目录语义就是它们的类别。遇到 `项目`、`决策`、`联调点`、`integration`、`epic`、`architecture`、`development-task` 等未知或旧类型时，不得把它们当成第五类正式节点或 `task_role` 值；保留原页面。归属明确的内容可整理为支撑记录，其余在 `图谱/候选/` 下记录待确认的类型和归属。
 
 节点文件名统一为 `类型-名字.md`，例如 `系统-业务平台.md`、`缺口-数据导入缺少幂等校验.md`。frontmatter 的 `type` 使用同样的中文值。文件名和标题面向用户使用中文；稳定 `id` 仍用于追踪身份，节点改名时不改变它。若同一类型下出现同名节点，不自动合并，文件名在中文名称后追加稳定 ID 短后缀并报告重复候选。
 
@@ -266,7 +265,6 @@ compile 从明确来源推导出的待确认候选。候选有临时身份、来
 ## 相关文档
 
 - 命令流程：`action/config.md`、`action/list.md`、`action/pull.md`、`action/compile.md`、`action/push.md`
-- 迁移流程：`action/migrate.md`
 - Git 知识库仓库：`references/setup.md`、`references/git-repository.md`
 - 会话状态契约：`references/session-state.md`
 - HTML 命令和导出：`action/html.md`、`references/html.md`

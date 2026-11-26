@@ -195,11 +195,9 @@
 - AI 不能仅凭子任务完成、依赖变化或代码提交自动改变任务状态。
 - 缺口是否已解决也不能仅由任务状态推断，仍需要明确事实或用户确认。
 
-## 迁移策略
+## 旧版布局对照
 
-迁移只作用于当前 workspace，执行前必须取得用户明确确认，并通过 Obsidian CLI 读写 Vault 内容。
-
-迁移映射如下：
+下表记录旧版与新版图谱的存储位置。
 
 | 旧内容 | 新内容 |
 | --- | --- |
@@ -242,12 +240,11 @@ Obsidian CLI 不可用、当前 workspace 不可访问、写入失败或迁移�
 - `CONTEXT.md`：术语、类型边界和架构定位；
 - `templates/SCHEMA.md.example`：Schema、关系端点和布局；
 - `action/compile.md`：四类节点识别、定位、视图生成和 warning；
-- `action/migrate.md`：旧项目/决策/能力缺口/联调点迁移；
 - `references/layered-views.md`：四个视图的边界和规模控制；
 - `references/project-state.md`：项目支撑记录和代码现场采集；
 - 新增 ADR：记录正式类型精简和支撑记录降级决策。
 
-当前阶段不修改用户知识库中的实际 workspace 内容；实现文档更新后，才由用户明确执行 `migrate` 迁移实际 Vault。
+此设计阶段的改动范围是 Skill 文档。
 
 ## 验收标准
 

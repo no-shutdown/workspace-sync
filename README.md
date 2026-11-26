@@ -20,7 +20,6 @@
 /workspace-sync config
 /workspace-sync pull [工作区名称]
 /workspace-sync list
-/workspace-sync migrate [工作区名称]
 /workspace-sync compile [工作区名称]
 /workspace-sync html [工作区名称]
 /workspace-sync push [工作区名称]
@@ -29,12 +28,11 @@
 - `config`：配置个人开发知识库 Git 仓库。
 - `pull`：同步仓库；选择/恢复当前会话 workspace，并读取接手上下文；没有有效当前会话 workspace 时负责引导选择或新建。
 - `list`：列出本地 workspace，不自动同步远端；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存，否则显式用户选择仅作为一次性、非持久化操作，不写用户级或全局回退状态；没有有效当前会话 workspace 时负责引导选择或新建。
-- `migrate`：将已有 workspace 的旧英文目录、类型和链接迁移为中文布局；执行前需要确认。
 - `compile`：把当前会话 workspace 的原始资料或已确认会话结论编译成开发图谱，成功后更新本地只读 HTML；也可显式传 workspace 名称做单次覆盖。
 - `html`：重新生成当前或显式指定 workspace 的 HTML，并用默认浏览器打开。
 - `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端；也可显式传 workspace 名称做单次覆盖。
 
-每次涉及知识库事实的工作都必须先有当前会话 workspace。`list`/`pull` 负责在没有有效当前会话 workspace 时引导选择或新建；`compile`/`push`/`migrate`/`html` 不自行进入选择或创建流程，没有有效当前会话缓存时必须显式传 workspace，否则停止。不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，workspace-sync 才会把选择持久化到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；否则显式选择仅作为一次性、非持久化操作，不写用户级或全局回退指针。
+每次涉及知识库事实的工作都必须先有当前会话 workspace。`list`/`pull` 负责在没有有效当前会话 workspace 时引导选择或新建；`compile`/`push`/`html` 不自行进入选择或创建流程，没有有效当前会话缓存时必须显式传 workspace，否则停止。不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，workspace-sync 才会把选择持久化到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；否则显式选择仅作为一次性、非持久化操作，不写用户级或全局回退指针。
 
 ## 仓库结构
 

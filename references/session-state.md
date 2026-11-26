@@ -41,7 +41,7 @@ cache = <run_dir>/.workspace-sync-cache/sessions/<session-id>.json
 
 ## 默认读取与安全失败
 
-`compile`、`push`、`migrate` 等依赖知识库事实的默认行为只读取当前会话缓存，或接受显式 workspace 作为单次覆盖。
+`compile`、`push`、`html` 等依赖知识库事实的默认行为只读取当前会话缓存，或接受显式 workspace 作为单次覆盖。
 
 遇到以下情况时，依赖默认会话边界的行为必须安全停止并要求重新选择，不能根据旧指针、文件名、最近更新时间或其他会话猜测 workspace：
 

@@ -35,7 +35,6 @@
 - Modify: `action/pull.md` — 同步后将选择绑定到当前会话，加入显式 workspace、session 缓存和项目路径优先级。
 - Modify: `action/compile.md` — 支持可选 workspace 覆盖，默认读取当前会话缓存，缺失时安全停止。
 - Modify: `action/push.md` — 支持可选 workspace 覆盖，默认读取当前会话缓存，保持提交范围和远端安全规则。
-- Modify: `action/migrate.md` — 迁移操作使用当前会话 workspace，支持显式覆盖，不从全局指针猜测。
 
 ### 参考文档和用户入口
 
@@ -93,7 +92,7 @@
   修改这些位置：
 
   - 不可违反规则：将“先选 workspace”改为“先建立当前会话 workspace 边界”，明确不读全局 current workspace；
-  - 命令表：给 `compile`、`push`、`migrate` 增加可选 workspace 覆盖说明；
+  - 命令表：给 `compile`、`push` 增加可选 workspace 覆盖说明；
   - 本地配置：`state_file` 只保存设备级配置和 `project_paths`，加入会话缓存路径链接；
   - 本地状态示例：移除用户级 `current_workspace_id/name`，添加 session cache 示例；
   - `pull`、`list`、`compile`、`push` 和新会话启动流程：统一先解析 session cache、按稳定 ID 校验 workspace，缺失时安全停止；
@@ -177,12 +176,11 @@
   git commit -m "docs: bind workspace selection to sessions"
   ```
 
-### Task 3: 更新 compile/push/migrate 的消费边界
+### Task 3: 更新 compile/push 的消费边界
 
 **Files:**
 - Modify: `action/compile.md`
 - Modify: `action/push.md`
-- Modify: `action/migrate.md`
 
 **Interfaces:**
 - Consumes: Task 1 的 session state contract 和 Task 2 的选择绑定流程。
@@ -196,26 +194,22 @@
 
   将命令改为 `/workspace-sync push [工作区名称]`，把“读取本地当前 workspace 指针”改为“解析当前会话缓存或显式 workspace”。显式路径和当前 cwd 优先于用户级 project_paths；其他 workspace 和根目录提交范围规则不变。
 
-- [ ] **Step 3: 更新 migrate 命令接口**
-
-  将命令改为 `/workspace-sync migrate [工作区名称]`，迁移预览和确认都必须绑定当前会话 workspace 或显式参数；不能从用户级 current pointer 猜测。保留迁移只作用于一个 workspace、必须确认、不自动 push 的规则。
-
-- [ ] **Step 4: 验证消费命令文档**
+- [ ] **Step 3: 验证消费命令文档**
 
   Run:
 
   ```bash
   git diff --check
   rg -n "当前 workspace 指针|读取本地当前|current_workspace|\.workspace-sync-cache|显式" \
-    action/compile.md action/push.md action/migrate.md
+    action/compile.md action/push.md
   ```
 
-  Expected: 三个命令都写明会话缓存/显式参数；没有把用户级 current pointer 作为默认来源的正向流程。
+  Expected: 两个命令都写明会话缓存/显式参数；没有把用户级 current pointer 作为默认来源的正向流程。
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
   ```bash
-  git add action/compile.md action/push.md action/migrate.md
+  git add action/compile.md action/push.md
   git commit -m "docs: require session workspace for operations"
   ```
 
@@ -252,7 +246,7 @@
 
 - [ ] **Step 4: 更新 README 使用说明**
 
-  在命令表和安装后的工作流中说明：`list/pull` 的选择属于当前会话；`compile/push/migrate` 可显式传 workspace；多个会话可以在同一目录使用不同 workspace；用户需自行忽略 `.workspace-sync-cache`。
+  在命令表和安装后的工作流中说明：`list/pull` 的选择属于当前会话；`compile/push` 可显式传 workspace；多个会话可以在同一目录使用不同 workspace；用户需自行忽略 `.workspace-sync-cache`。
 
 - [ ] **Step 5: 更新 CONTEXT 术语**
 
