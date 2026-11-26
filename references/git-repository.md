@@ -10,7 +10,7 @@ workspace-sync 只支持一个知识库 Git 仓库。Git adapter 的接口很小
 4. `commit(scope, message)`：只提交调用方明确指定的路径范围。
 5. `push(branch)`：推送已整合的本地分支；禁止 force。
 
-Git 适配器不读取 Markdown 语义、不生成节点、不解析 Wiki 链接。Vault 内容行为由 Obsidian CLI 适配器负责。
+Git 适配器不读取 Markdown 语义、不生成节点、不解析 Wiki 链接。内容行为由 Markdown 文件接口或可选的 Obsidian CLI 负责。
 
 ## 安全规则
 
@@ -36,11 +36,11 @@ commit
 push
 ```
 
-不允许用 Git 命令直接代替 Obsidian CLI 读取、创建或修改 Vault 页面内容。Git 可以用来判断变更范围和版本状态。
+Git 用于判断变更范围和版本状态。Markdown 内容操作见 `references/markdown.md`。
 
 ## 配置、设备状态与会话缓存
 
-Git 知识库仓库路径、分支和 Obsidian Vault 名称写入本机配置；`state_file` 只保存设备级 `project_paths` 等映射，不再承担当前 workspace 指针。
+Git 知识库仓库路径、分支及可选的 Obsidian 设置写入本机配置；`state_file` 只保存设备级 `project_paths` 等映射，不再承担当前 workspace 指针。
 
 当前 workspace 和 focus task 的默认来源是当前运行目录下的会话缓存：
 

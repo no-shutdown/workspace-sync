@@ -25,7 +25,7 @@ _避免_：文件名身份、名称匹配、每次编译重新生成
 **节点元数据（Node Frontmatter）**：每个节点 Markdown 顶部用于描述身份、类型、标题、时间和来源的 YAML 元数据。根任务额外记录 `task_role: 根任务`；任务节点在此基础上记录当前任务状态。
 _避免_：把身份信息只写在正文、用文件名代替 ID
 
-**语义 Wiki 链接（Semantic Wiki Link）**：在节点 Markdown 正文中以“关系类型 + Wiki 链接”表达图谱关系的写法。它同时服务于人类阅读、Obsidian 图谱展示和编译器解析。
+**语义 Wiki 链接（Semantic Wiki Link）**：在节点 Markdown 正文中以“关系类型 + Wiki 链接”表达图谱关系的写法。它同时服务于人类阅读、Obsidian 或 HTML 展示和编译解析。
 _避免_：无标签链接、只存在于 YAML 的隐藏关系
 
 **图谱关系（Graph Relation）**：连接正式图谱节点并表达明确语义的关系，例如“包含”“提供”“存在缺口”“解决”“涉及系统”“需要联调”或“依赖”。关系不是无语义的连线。
@@ -133,24 +133,26 @@ _避免_：修改任务状态的全局焦点、用名称猜任务、把依赖当
 _避免_：只读开发任务树、只读架构地图、递归加载全库、用页面邻近关系猜测关联
 
 **Obsidian CLI 交互层（Obsidian CLI Interaction Layer）**：workspace-sync 与个人开发知识库 Markdown 交互、打开页面、查询链接和调用 Obsidian 能力的命令行入口。它提供操作和展示能力，但不取代 Git Markdown 作为知识库事实来源。
-_避免_：自建图谱数据库、独立可视化运行时、把 Obsidian 状态当作知识事实
+_避免_：自建图谱数据库、把 Obsidian 状态当作知识事实
 
-**知识库 Vault（Knowledge Base Vault）**：整个个人开发知识库 Git 仓库作为一个 Obsidian Vault；多个 workspace 以 Vault 内目录形式隔离，不分别创建 Vault。
+**知识库 Vault（Knowledge Base Vault）**：整个个人开发知识库 Git 仓库可作为一个 Obsidian Vault。多个 workspace 以目录隔离。
 _避免_：每个 workspace 一个 Vault、Obsidian Vault 作为事实来源
 
-**Vault CLI 操作边界（Vault CLI Boundary）**：workspace-sync 对 Vault 内 Markdown 的读取、创建、修改、搜索、链接查询和打开均通过 Obsidian CLI；Git 命令只处理仓库版本和远端同步，不承担 Vault 内容语义。
+**Markdown 内容接口**：workspace-sync 默认直接操作 Git 知识库目录中的 Markdown，也可选择 Obsidian CLI。Git 只处理版本和远端同步。
+
+**HTML 快照**：浏览器直接打开的本机只读页面。HTML 导出直接读取已选 workspace 的 Markdown；`compile` 成功后更新固定文件，刷新浏览器即可看到新结果。
 _避免_：自定义 Vault API、第二套文件索引、Git 直接解释 Wiki 语义
 
 **知识库 Git 配置（Knowledge Repository Configuration）**：当前设备用于访问个人开发知识库的配置，包括同一个 Git 远端、分支、本地 Vault 路径、认证方式，以及指向设备级状态文件的 `state_file`。该配置只负责知识库连接和本机访问；`state_file` 只保存 `project_paths` 等设备级映射，不选择 workspace，也不回退到用户级全局指针。
 _避免_：多 backend workspace 存储、远端 workspace 快照配置、在 config 中保存当前 workspace
 
-**设备本地 Vault 路径（Device-local Vault Path）**：某台设备上知识库 Git 仓库的本地目录，只用于定位该设备的 Obsidian Vault，不参与跨设备知识库身份匹配，也不写入共享知识内容。
+**设备本地 Vault 路径（Device-local Vault Path）**：某台设备上知识库 Git 仓库的本地目录，用于定位该设备的知识库，也可用于定位 Obsidian Vault，不参与跨设备知识库身份匹配，也不写入共享知识内容。
 _避免_：共享绝对路径、用源设备路径恢复、路径作为仓库身份
 
-**接手打开（Handoff Open）**：pull 完成知识库仓库恢复后，通过 Obsidian CLI 打开 Vault，并打开当前 workspace 的 `图谱/总览.md`，使用户和 AI 立即进入可接手状态。
+**接手打开（Handoff Open）**：pull 完成知识库仓库恢复后，读取当前 workspace 的 `图谱/总览.md`，可选通过 Obsidian CLI 打开；浏览器入口为 `html`，使用户和 AI 立即进入可接手状态。
 _避免_：只拉取文件不进入 workspace、打开旧 summary、自动打开其他 workspace
 
-**工作空间列表（Workspace Listing）**：通过 Obsidian CLI 列出 Vault 根目录候选文件夹，并在选择前只读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据；用户选择后重新读取并验证所选 `工作区.md` 的稳定 ID，验证前不读取图谱或其他 workspace 上下文。验证通过后，在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存。它是本地选择操作，不负责远端 Git 同步；条件不满足时，显式用户选择只对当前命令生效、非持久化，不创建用户级或全局回退状态。
+**工作空间列表（Workspace Listing）**：通过所选内容接口列出知识库根目录候选文件夹，并在选择前只读取候选 `工作区.md` 的 `workspace_id`、显示名称、生命周期和 `updated_at` 控制元数据；用户选择后重新读取并验证所选 `工作区.md` 的稳定 ID，验证前不读取图谱或其他 workspace 上下文。验证通过后，在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存。它是本地选择操作，不负责远端 Git 同步；条件不满足时，显式用户选择只对当前命令生效、非持久化，不创建用户级或全局回退状态。
 _避免_：远端快照列表、按代码项目列 workspace、list 自动 pull、写用户级全局 current workspace
 
 **知识库同步操作（Knowledge Base Sync Operation）**：直接作用于个人开发知识库 Git 仓库的 `pull`、`compile`、`push` 和会话边界迁移命令 `migrate`。它们默认共享同一个当前会话 workspace 上下文，也接受显式 workspace 作为单次覆盖；没有稳定会话上下文时不回退到用户级全局指针，不在另一个存储系统中生成交接副本。
@@ -280,7 +282,7 @@ _避免_：已删除工作空间、失效工作空间
 **工作空间生命周期（Workspace Lifecycle）**：workspace 的当前状态集合，包括 `active`、`paused` 和 `archived`。完成或放弃的 workspace 都进入 `archived`，具体原因记录在 workspace 元数据中。
 _避免_：进行中/完成二元状态、自动删除、把任务状态当 workspace 状态
 
-**链接健康检查（Link Health Check）**：`compile` 完成后通过 Obsidian CLI 对当前 workspace `图谱/节点/` 的语义链接执行的只读检查，包括未解析链接、孤立页面、无出链页面以及相关链接关系查询。检查结果只报告问题并写入操作日志，不自动修改人工维护的节点页面；可重建的生成页面由后续 compile 更新。
+**链接健康检查（Link Health Check）**：`compile` 结束前，通过所选内容接口对当前 workspace `图谱/节点/` 的语义链接执行的只读检查，包括未解析链接、孤立页面、无出链页面以及相关链接关系查询。检查结果只报告问题并写入操作日志，不自动修改人工维护的节点页面；可重建的生成页面由后续 compile 更新。
 _避免_：静默修复人工页面、把检查结果当开发事实、跨 workspace 检查并改写内容
 
 **图谱健康问题（Graph Health Finding）**：链接健康检查发现的未解析链接、孤立节点或无出链节点等结构性诊断结果。它们显示在当前 workspace 的 `图谱/总览.md`；只有问题首次出现、状态变化或被解决时才追加记录到 `图谱/日志.md`。它们不是开发事实、正式任务或候选任务；只有用户确认后，才可转为待确认项或候选任务。
@@ -295,7 +297,7 @@ _避免_：自动跨 workspace 解析链接、把其他迭代节点并入当前�
 **生成页面（Generated Page）**：由 compile 根据当前 workspace 的节点页面、原始资料和检查结果生成的 `图谱/总览.md`、`图谱/索引.md` 及 `图谱/视图/`。它们是可重建的导航、接手和分层视图，不是人工事实的编辑入口；人工修改应写入原始资料或具体节点页面，下一次 compile 以事实源重新生成。
 _避免_：把生成页面当作事实源、在总览/索引/视图中维护独立任务状态、依赖手工修改抵抗重建
 
-**编译警告（Compilation Warning）**：compile 已成功写入可生成的知识内容，但发现未解析链接、孤立节点、冲突或其他需要关注的图谱问题时返回的非阻断结果。警告会展示并写入当前 workspace 的操作日志；只有 Obsidian CLI 不可用、知识库写入失败等执行错误才使 compile 失败。
+**编译警告（Compilation Warning）**：compile 已成功写入可生成的知识内容，但发现未解析链接、孤立节点、冲突或其他需要关注的图谱问题时返回的非阻断结果。警告会展示并写入当前 workspace 的操作日志；只有知识库访问或写入失败等执行错误才使 compile 失败。
 _避免_：把图谱维护问题当编译失败、隐藏警告、为了通过检查自动改变人工事实
 
 **编译提交条件（Compilation Commit Condition）**：compile 只要完成知识内容写入，即使伴随图谱健康 warning，也创建本地 Git commit；若发生 CLI 不可用、目标 workspace 不可访问或写入失败等执行错误，则不创建自动 commit，保留现场并报告失败原因。

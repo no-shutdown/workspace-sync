@@ -109,13 +109,18 @@ done
 TARGET_DIR="$(normalize_target_path "$TARGET_DIR")"
 assert_safe_target "$TARGET_DIR"
 
-# Copy all source files (excluding .git), preserving directory structure.
+# Copy skill sources, excluding local dependencies and configuration.
 # New files added to the repo are automatically picked up on next install.
 while IFS= read -r f; do
   dest="$TARGET_DIR/$f"
   mkdir -p "$(dirname "$dest")"
   cp -- "$SCRIPT_DIR/$f" "$dest"
-done < <(cd "$SCRIPT_DIR" && find . -not -path './.git/*' -not -name '.gitignore' -type f | sed 's|^\./||' | sort)
+done < <(
+  cd "$SCRIPT_DIR"
+  find . \( -name .git -o -name node_modules -o -name .worktrees \) -prune -o \
+    -type f ! -name '.gitignore' ! -name 'config.json' ! -name 'local-paths.json' -print |
+    sed 's|^\./||' | sort
+)
 
 chmod +x "$TARGET_DIR/install.sh" "$TARGET_DIR/uninstall.sh"
 
@@ -134,8 +139,11 @@ Files:
   $TARGET_DIR/docs/
   $TARGET_DIR/references/
   $TARGET_DIR/templates/
+  $TARGET_DIR/src/
+  $TARGET_DIR/assets/
 
 Next steps:
   1. Configure one personal knowledge-base Git repository with /workspace-sync config
   2. Start your CLI and run /workspace-sync pull to select or create a workspace
+  3. For HTML, run npm ci --ignore-scripts --omit=dev in the directory above, then use /workspace-sync html
 EOF

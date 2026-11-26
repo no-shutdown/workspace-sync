@@ -2,7 +2,7 @@
 
 ## 边界
 
-- 整个仓库是一个 Obsidian Vault。
+- 整个仓库承载 Markdown 知识库，也可作为 Obsidian Vault 使用。
 - 每个顶层 workspace 文件夹是一段相互隔离的开发迭代，新建时使用中文用户可读名称。
 - 用户可见的目录和节点文件名使用中文；节点文件名统一为 `类型-名字.md`。
 - 语义 Wiki 链接只指向当前 workspace 的正式节点。

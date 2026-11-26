@@ -1,6 +1,6 @@
 # Obsidian CLI 适配器
 
-官方 Obsidian CLI 是知识库 Vault 的唯一内容交互接口。使用前确保 Obsidian CLI 已安装，并按本机 Obsidian 版本要求运行 Obsidian；CLI 的具体命令和安装要求以[官方 CLI 文档](https://obsidian.md/help/cli)为准。
+Obsidian CLI 是可选的 Markdown 内容接口，启用规则见 [Markdown 内容接口](markdown.md)。使用前确保 Obsidian CLI 已安装，并按本机 Obsidian 版本要求运行 Obsidian；具体命令和要求见 [官方 CLI 文档](https://obsidian.md/help/cli)。HTML 导出独立读取本地文件。
 
 ## 适配器职责
 
@@ -74,4 +74,4 @@ obsidian vault="dev-knowledge" backlinks path="数据导入迭代/图谱/节点/
 
 ## CLI 失败
 
-CLI 不可调用、Vault 无法定位、命令返回写入错误时，compile/pull/list 等相关操作明确失败并报告原因。不要悄悄切换到自定义文件读写接口，以免形成第二套 Vault 事实来源。
+操作开始前发现 CLI 不可用或无法定位正确 Vault 时，报告原因并使用文件接口。使用 CLI 执行写入后遇到错误时报告现场，避免自动切换接口重试整次操作。

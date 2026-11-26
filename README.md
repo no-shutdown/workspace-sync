@@ -1,8 +1,8 @@
 # workspace-sync
 
-`workspace-sync` 是一个个人开发知识库 skill：把开发迭代、系统、能力、缺口和开发任务组织成可被人和 AI 共同使用的 Obsidian Markdown 图谱。代码项目和技术决策作为支撑记录，系统联调使用关系表达。
+`workspace-sync` 是一个个人开发知识库 skill：把开发迭代、系统、能力、缺口和开发任务组织成可被人和 AI 共同使用的 Markdown 图谱。代码项目和技术决策作为支撑记录，系统联调使用关系表达。
 
-知识库由用户配置的一个 Git 仓库承载。仓库本身就是 Obsidian Vault；其中每个顶层文件夹都是一个独立 workspace，也就是一个开发迭代，新建时使用中文工作区名称。一个 workspace 可以同时关联多个代码项目，不与任何单一项目一一绑定。
+知识库由用户配置的一个 Git 仓库承载。仓库也可作为 Obsidian Vault 使用；其中每个顶层文件夹都是一个独立 workspace，也就是一个开发迭代，新建时使用中文工作区名称。一个 workspace 可以同时关联多个代码项目，不与任何单一项目一一绑定。
 
 ## 核心体验
 
@@ -22,17 +22,19 @@
 /workspace-sync list
 /workspace-sync migrate [工作区名称]
 /workspace-sync compile [工作区名称]
+/workspace-sync html [工作区名称]
 /workspace-sync push [工作区名称]
 ```
 
 - `config`：配置个人开发知识库 Git 仓库。
-- `pull`：同步仓库；选择/恢复当前会话 workspace，并打开接手入口；没有有效当前会话 workspace 时负责引导选择或新建。
+- `pull`：同步仓库；选择/恢复当前会话 workspace，并读取接手上下文；没有有效当前会话 workspace 时负责引导选择或新建。
 - `list`：列出本地 workspace，不自动同步远端；仅在 `session_id`、`run_dir` 均有效且会话缓存可写时将用户选择绑定到当前会话缓存，否则显式用户选择仅作为一次性、非持久化操作，不写用户级或全局回退状态；没有有效当前会话 workspace 时负责引导选择或新建。
 - `migrate`：将已有 workspace 的旧英文目录、类型和链接迁移为中文布局；执行前需要确认。
-- `compile`：把当前会话 workspace 的原始资料或已确认会话结论编译成开发图谱；也可显式传 workspace 名称做单次覆盖。
+- `compile`：把当前会话 workspace 的原始资料或已确认会话结论编译成开发图谱，成功后更新本地只读 HTML；也可显式传 workspace 名称做单次覆盖。
+- `html`：重新生成当前或显式指定 workspace 的 HTML，并用默认浏览器打开。
 - `push`：采集关联项目 Git 现场，提交当前 workspace 的知识库变更并推送远端；也可显式传 workspace 名称做单次覆盖。
 
-每次涉及知识库事实的工作都必须先有当前会话 workspace。`list`/`pull` 负责在没有有效当前会话 workspace 时引导选择或新建；`compile`/`push`/`migrate` 不自行进入选择或创建流程，没有有效当前会话缓存时必须显式传 workspace，否则停止。不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，workspace-sync 才会把选择持久化到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；否则显式选择仅作为一次性、非持久化操作，不写用户级或全局回退指针。
+每次涉及知识库事实的工作都必须先有当前会话 workspace。`list`/`pull` 负责在没有有效当前会话 workspace 时引导选择或新建；`compile`/`push`/`migrate`/`html` 不自行进入选择或创建流程，没有有效当前会话缓存时必须显式传 workspace，否则停止。不自动猜测，也不跨 workspace 读取。多个会话可以在同一目录下通过各自的 `session_id` 使用不同 workspace；只有在 `session_id`、`run_dir` 均有效且会话缓存可写时，workspace-sync 才会把选择持久化到 `<run_dir>/.workspace-sync-cache/sessions/<session-id>.json`；否则显式选择仅作为一次性、非持久化操作，不写用户级或全局回退指针。
 
 ## 仓库结构
 
@@ -108,9 +110,13 @@ AI 接手/开发时不是只读某一张视图，而是按固定顺序装配局�
 - pull 不强制覆盖 dirty 代码项目。
 - Git 冲突停止处理，禁止 force push。
 
-## Obsidian CLI
+## 浏览器与 Obsidian
 
-Vault 内 Markdown 的读取、创建、修改、搜索、链接查询和打开统一通过官方 Obsidian CLI；workspace-sync 不维护第二套图数据库或 Vault API。Git 只负责 clone、fetch、rebase、commit 和 push。
+`/workspace-sync html` 从本地 Markdown 生成一个只读页面，默认定位到总览，可从侧栏浏览分层视图与笔记，点击工作区内的 Wiki 链接。HTML 内置 Mermaid 渲染资源，浏览器可直接打开本地文件。
+
+每次成功的 `compile` 更新同一份本机 HTML。已经打开的标签页刷新即可看到新内容。HTML 放在系统缓存目录，Git 继续同步 Markdown。
+
+默认通过文件接口读写知识库 Markdown。Obsidian CLI 保留为独立的可选接口，可通过 `obsidian.enabled` 和 `obsidian.vault` 配置，已有只填写 `obsidian.vault` 的配置也兼容。HTML 导出独立读取 Markdown。详见 [HTML 导出](references/html.md) 和 [Markdown 内容接口](references/markdown.md)。
 
 详细运行契约见 [`SKILL.md`](./SKILL.md)，命令流程见 [`action/`](./action/)，仓库和 CLI 约定见 [`references/`](./references/)。
 
@@ -119,8 +125,10 @@ Vault 内 Markdown 的读取、创建、修改、搜索、链接查询和打开�
 ```bash
 git clone https://github.com/<your-username>/workspace-sync
 cd workspace-sync
-./install.sh
+bash ./install.sh
 ```
+
+使用 HTML 时，在安装后的 skill 目录执行一次 `npm ci --ignore-scripts --omit=dev`，需要 Node.js 22.12 或更新版本。只使用 Obsidian 时可跳过安装 HTML 依赖。
 
 安装后配置：
 

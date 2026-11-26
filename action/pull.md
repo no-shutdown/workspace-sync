@@ -8,7 +8,7 @@
 
 ## 目标
 
-同步唯一的个人开发知识库 Git 仓库，并选择一个 workspace 绑定到当前会话。`pull` 不复制出 workspace 快照；本地 clone 本身就是 Obsidian Vault。
+同步唯一的个人开发知识库 Git 仓库，并选择一个 workspace 绑定到当前会话。`pull` 不复制出 workspace 快照；本地 Git clone 直接承载知识库 Markdown。
 
 ## 步骤
 
@@ -28,7 +28,7 @@
 ### 3. 选择 workspace
 
 - 命令带 `<工作区名称>` 时，验证该文件夹和 `工作区.md` 存在，并按稳定 `workspace_id` 直接绑定该 workspace。
-- 未带名称时，按 `references/obsidian-cli.md` 的预边界元数据发现规则，通过 Obsidian CLI 列出 Vault 根目录文件夹，并从每个候选 `工作区.md` 读取用于选择的稳定 `workspace_id`、显示名称、生命周期和 `updated_at`；这些是控制元数据，不是知识库事实。用户选择前不读取候选 workspace 的图谱页面、workspace 正文、links/backlinks/files/search 结果、任务、架构或其他上下文事实，也不根据最近修改时间自动猜测或写入缓存、fallback state。
+- 未带名称时，按 `references/markdown.md` 的预边界元数据发现规则列出知识库一级文件夹，并从每个候选 `工作区.md` 读取用于选择的稳定 `workspace_id`、显示名称、生命周期和 `updated_at`；这些是控制元数据，不是知识库事实。用户选择前不读取候选 workspace 的图谱页面、workspace 正文、links/backlinks/files/search 结果、任务、架构或其他上下文事实，也不根据最近修改时间自动猜测或写入缓存、fallback state。
 - 用户明确选择后，无论来自命令参数还是交互选择，都必须重新读取所选 `工作区.md` 并验证其稳定 `workspace_id` 与用户明确选择的目标一致；验证通过前不得打开总览或组装上下文，验证失败则停止，不回退到其他 workspace。
 - 没有可选 workspace 时，要求用户输入新名称并初始化一个 workspace。
 - 缓存缺失、损坏或 workspace 身份校验失败时，默认选择行为停止并要求用户重新明确选择；不回退到用户级 `current_workspace_*`、目录名或其他会话。运行环境缺少 `session_id` 或 `run_dir` 时，只有经验证的显式 workspace（命令参数或用户明确选择）可以完成一次非持久化操作；既没有有效会话上下文也没有显式 workspace 时停止。
@@ -44,11 +44,7 @@
 
 ### 5. 打开接手入口
 
-通过 Obsidian CLI：
-
-1. 打开知识库 Vault；
-2. 打开 `<workspace>/图谱/总览.md`；
-3. 读取并向用户呈现目标、架构面包屑、任务面包屑、当前任务、阻塞、缺口、联调和下一步；需要展开任务时进入 `<workspace>/图谱/视图/开发任务.md`。
+读取 `<workspace>/图谱/总览.md` 并向用户呈现目标、架构面包屑、任务面包屑、当前任务、阻塞、缺口、联调和下一步；需要展开任务时读取 `<workspace>/图谱/视图/开发任务.md`。已启用且可用时，保留通过 Obsidian CLI 打开 Vault 和总览的行为。浏览器入口为 `html`。
 
 同步完成后，按“用户明确指定焦点 > 当前会话缓存中属于所选 `workspace_id` 且已验证的 `focus_task_id` > 当前对话明确确认 > `总览.md` 活动任务”的优先级装配局部上下文闭包：任务父级链、直接子任务、直接依赖/未完成直接依赖者、架构邻域、联调关系和直接支撑记录。缓存焦点无效时已清除并报告 warning，再按剩余优先级继续；没有明确焦点时只呈现活动任务摘要并要求选择，不自动进入最近修改或名称相似的任务；原始资料和完整历史按需展开。
 
